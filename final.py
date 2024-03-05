@@ -1,3 +1,6 @@
+## IMPORTS
+import os
+
 ## LOAD TXT FILE WITH CORRECT ANSWERS
 def load_file_with_answers(filename):
     with open(filename, 'r') as file:
@@ -36,9 +39,25 @@ def calculate_max_points(matrix):
     return max_points
 
 correct_answers_max_points = calculate_max_points(correct_answers_matrix)
-print(correct_answers_max_points)
 
-## LOAD ALL IMAGES FROM THE FOLDER
+## GET PATHS FOR ALL IMAGES IN THE FOLDER
+def find_image_files():
+    image_extensions = ['.jpg', '.jpeg', '.png']  # Add more if needed
+    image_files = []
+    for root, dirs, files in os.walk("PraceDoSprawdzenia"):
+        for file in files:
+            _, extension = os.path.splitext(file)
+            if extension.lower() in image_extensions:
+                image_files.append(os.path.join(root, file))
+    return image_files
+
+paper_to_check_path_array = find_image_files()
+print("Image files found:")
+for path in paper_to_check_path_array:
+    print(path)
+
+## GET PATH FOR TEMPLATE
+paper_template_path = 'Template.jpg'
 
 ## PERFORM ORIENTATION AND SIZE CORRECTIONS
 

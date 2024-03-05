@@ -1,7 +1,4 @@
-## LOAD ALL IMAGES FROM THE FOLDER
-
 ## LOAD TXT FILE WITH CORRECT ANSWERS
-# CALCULATE MAX POINTS
 def load_file_with_answers(filename):
     with open(filename, 'r') as file:
         lines = file.readlines()
@@ -23,10 +20,25 @@ def create_matrix_for_correct_answers(filename):
         print("Error:", e)
         return None
 
-filename = "PoprawneOdpowiedzi.txt"
-matrix = create_matrix_for_correct_answers(filename)
-print(matrix)
+correct_answers_filename = "PoprawneOdpowiedzi.txt"
+correct_answers_matrix = create_matrix_for_correct_answers(correct_answers_filename)
 
+# CALCULATE MAX POINTS
+def calculate_max_points(matrix):
+    if not matrix:
+        return None
+    
+    max_points = 0
+    for row in matrix:
+        for cell in row:
+            if cell == 1:
+                max_points += 1
+    return max_points
+
+correct_answers_max_points = calculate_max_points(correct_answers_matrix)
+print(correct_answers_max_points)
+
+## LOAD ALL IMAGES FROM THE FOLDER
 
 ## PERFORM ORIENTATION AND SIZE CORRECTIONS
 

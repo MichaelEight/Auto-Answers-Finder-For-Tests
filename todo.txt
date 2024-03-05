@@ -14,3 +14,8 @@ so user can quickly go through them and see visually if something's off
 6. App displays (and outputs to "wyniki.txt") list of students and their points / max points
 7. App outputs edited papers - oriented, scaled and answers marked:
     GREEN marked, RED circled, (optional) YELLOW/GRAY none
+
+
+
+
+CORRECT TEMPLATE -- make each square more pretty number (more round)

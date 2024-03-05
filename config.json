@@ -20,16 +20,6 @@
         {"question": 4, "choice": "A", "center": [435, 1533]},
         {"question": 4, "choice": "B", "center": [557, 1533]},
         {"question": 4, "choice": "C", "center": [679, 1533]},
-        {"question": 4, "choice": "D", "center": [799, 1533]},
-        
-        {"question": 5, "choice": "A", "center": [435, 1660]},
-        {"question": 5, "choice": "B", "center": [557, 1660]},
-        {"question": 5, "choice": "C", "center": [679, 1660]},
-        {"question": 5, "choice": "D", "center": [799, 1660]},
-        
-        {"question": 6, "choice": "A", "center": [435, 1782]},
-        {"question": 6, "choice": "B", "center": [557, 1782]},
-        {"question": 6, "choice": "C", "center": [679, 1782]},
-        {"question": 6, "choice": "D", "center": [799, 1782]}
+        {"question": 4, "choice": "D", "center": [799, 1533]}        
     ]
 }

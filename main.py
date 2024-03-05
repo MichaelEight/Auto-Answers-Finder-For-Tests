@@ -183,10 +183,10 @@ def compare_matrices(template_matrix, example_matrix):
     score = 0
     for row_template, row_example in zip(template_matrix, example_matrix):
         for elem_template, elem_example in zip(row_template, row_example):
-            if elem_template == 1 and elem_example == 1:
-                score += 1  # Add 1 point if both matrices have 1 at the same position
-            elif elem_template != elem_example:
-                score -= 1  # Subtract 1 point for mismatched positions
+            if elem_example == 1 and elem_template == 0:
+                score -= 1  # Subtract 1 point for mismatched positions where Example has "1" and Template has "0"
+            elif elem_template == 1 and elem_example == 1:
+                score += 1  # Add 1 point if both matrices have "1" at the same position
         score = max(0, score)  # Cap the score at 0 if it becomes negative
     return score
 
@@ -215,8 +215,6 @@ for paper_to_check in paper_to_check_image_aligned_array:
 
         # Extract the box regions from both template and example images
         box_example = thresh_example[y_start:y_start+box_height, x_start:x_start+box_width]
-
-        print(f"Question Number: {question_num}, Choice Number: {choice_num}")
 
         # Check if the box is circled first
         if is_circled(thresh_example, center_x, center_y, box_width, proximity, 8000):

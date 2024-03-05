@@ -1,5 +1,7 @@
 ## IMPORTS
 import os
+import cv2
+import numpy as np
 
 ## LOAD TXT FILE WITH CORRECT ANSWERS
 def load_file_with_answers(filename):
@@ -52,14 +54,68 @@ def find_image_files():
     return image_files
 
 paper_to_check_path_array = find_image_files()
-print("Image files found:")
-for path in paper_to_check_path_array:
-    print(path)
 
-## GET PATH FOR TEMPLATE
+## GET PATH FOR TEMPLATE AND LOAD IT
 paper_template_path = 'Template.jpg'
+paper_template_image = cv2.imread(paper_template_path, 0)  # Load in grayscale
+
+## LOAD ALL REMAINING IMAGES
+def load_images_grayscale(image_paths):
+    grayscale_images = []
+    for path in image_paths:
+        img = cv2.imread(path, 0)  # Load in grayscale
+        grayscale_images.append(img)
+    return grayscale_images
+
+paper_to_check_image_array = load_images_grayscale(paper_to_check_path_array)
 
 ## PERFORM ORIENTATION AND SIZE CORRECTIONS
+def find_keypoints_and_descriptors(image):
+    orb = cv2.ORB_create() # Initialize ORB detector
+    keypoints, descriptors = orb.detectAndCompute(image, None)
+    return keypoints, descriptors
+
+template_keypoints, template_descriptors = find_keypoints_and_descriptors(paper_template_image)
+
+paper_to_check_keypoints = []
+paper_to_check_descriptors = []
+
+for img in paper_to_check_image_array:
+    keypoints, descriptors = find_keypoints_and_descriptors(img)
+    paper_to_check_keypoints.append(keypoints)
+    paper_to_check_descriptors.append(descriptors)
+
+bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True) # Create BFMatcher object
+
+all_matches = []
+
+for descriptors in paper_to_check_descriptors:
+    matches = bf.match(template_descriptors, descriptors)
+    all_matches.append(matches)
+
+# Process matches
+for i, matches in enumerate(all_matches):
+    # Draw first 10 matches
+    matched_img = cv2.drawMatches(paper_template_image, template_keypoints, paper_to_check_image_array[i], paper_to_check_keypoints[i], matches[:10], None, flags=2)
+    
+    # Extract location of good matches
+    points1 = np.zeros((len(matches), 2), dtype=np.float32)
+    points2 = np.zeros((len(matches), 2), dtype=np.float32)
+
+    for j, match in enumerate(matches):
+        points1[j, :] = template_keypoints[match.queryIdx].pt
+        points2[j, :] = paper_to_check_keypoints[i][match.trainIdx].pt
+    
+    # Find homography
+    h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
+
+    # Use homography
+    height, width = paper_template_image.shape
+    aligned_img = cv2.warpPerspective(paper_to_check_image_array[i], h, (width, height))
+    
+    # Save the transformed image
+    aligned_img_path = f"PraceZorientowane/aligned_image_{i}.jpg"
+    cv2.imwrite(aligned_img_path, aligned_img)
 
 ## FOR EACH IMAGE:
 # DETECT MARKED (AND CIRCLED) ANSWERS + STUDENT'S ID, RETURN ARRAY

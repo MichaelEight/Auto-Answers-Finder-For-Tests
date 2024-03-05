@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 template_path = 'Template.jpg'
-example_use_path = 'ExampleUse.jpg'
+example_use_path = 'ExampleAnswersCircled2.jpg'
 aligned_img_path = 'Aligned_ExampleUse.jpg'
 
 # Load the images

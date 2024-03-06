@@ -7,6 +7,7 @@
   "image_processing": {
     "box_size": [54, 54],
     "marking_threshold": 2375,
+    "marking_threshold_factor": 0.90,
     "circle_proximity_range": 30
   },
   "questions": [
@@ -44,6 +45,114 @@
         {"label": "B", "center": [557, 1533]},
         {"label": "C", "center": [679, 1533]},
         {"label": "D", "center": [799, 1533]}
+      ]
+    },
+	{
+      "number": 5,
+      "choices": [
+        {"label": "A", "center": [435, 1658]},
+        {"label": "B", "center": [557, 1658]},
+        {"label": "C", "center": [679, 1658]},
+        {"label": "D", "center": [799, 1658]}
+      ]
+    },
+	{
+      "number": 6,
+      "choices": [
+        {"label": "A", "center": [435, 1780]},
+        {"label": "B", "center": [557, 1780]},
+        {"label": "C", "center": [679, 1780]},
+        {"label": "D", "center": [799, 1780]}
+      ]
+    },
+	{
+      "number": 7,
+      "choices": [
+        {"label": "A", "center": [435, 1902]},
+        {"label": "B", "center": [557, 1902]},
+        {"label": "C", "center": [679, 1902]},
+        {"label": "D", "center": [799, 1902]}
+      ]
+    },
+	{
+      "number": 8,
+      "choices": [
+        {"label": "A", "center": [435, 2024]},
+        {"label": "B", "center": [557, 2024]},
+        {"label": "C", "center": [679, 2024]},
+        {"label": "D", "center": [799, 2024]}
+      ]
+    },
+	{
+      "number": 9,
+      "choices": [
+        {"label": "A", "center": [435, 2148]},
+        {"label": "B", "center": [557, 2148]},
+        {"label": "C", "center": [679, 2148]},
+        {"label": "D", "center": [799, 2148]}
+      ]
+    },
+	{
+      "number": 10,
+      "choices": [
+        {"label": "A", "center": [435, 2270]},
+        {"label": "B", "center": [557, 2270]},
+        {"label": "C", "center": [679, 2270]},
+        {"label": "D", "center": [799, 2270]}
+      ]
+    },
+	{
+      "number": 11,
+      "choices": [
+        {"label": "A", "center": [435, 2392]},
+        {"label": "B", "center": [557, 2392]},
+        {"label": "C", "center": [679, 2392]},
+        {"label": "D", "center": [799, 2392]}
+      ]
+    },
+	{
+      "number": 12,
+      "choices": [
+        {"label": "A", "center": [435, 2514]},
+        {"label": "B", "center": [557, 2514]},
+        {"label": "C", "center": [679, 2514]},
+        {"label": "D", "center": [799, 2514]}
+      ]
+    },
+	{
+      "number": 13,
+      "choices": [
+        {"label": "A", "center": [435, 2636]},
+        {"label": "B", "center": [557, 2636]},
+        {"label": "C", "center": [679, 2636]},
+        {"label": "D", "center": [799, 2636]}
+      ]
+    },
+	{
+      "number": 14,
+      "choices": [
+        {"label": "A", "center": [435, 2758]},
+        {"label": "B", "center": [557, 2758]},
+        {"label": "C", "center": [679, 2758]},
+        {"label": "D", "center": [799, 2758]}
+      ]
+    },
+	{
+      "number": 15,
+      "choices": [
+        {"label": "A", "center": [435, 2886]},
+        {"label": "B", "center": [557, 2886]},
+        {"label": "C", "center": [679, 2886]},
+        {"label": "D", "center": [799, 2886]}
+      ]
+    },
+	{
+      "number": 16,
+      "choices": [
+        {"label": "A", "center": [435, 3008]},
+        {"label": "B", "center": [557, 3008]},
+        {"label": "C", "center": [679, 3008]},
+        {"label": "D", "center": [799, 3008]}
       ]
     }
   ]

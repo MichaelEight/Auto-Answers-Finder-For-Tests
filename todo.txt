@@ -4,3 +4,6 @@
 
 
 CORRECT TEMPLATE -- make each square more pretty number (more round)
+
+
+introduce autocalibration -- example paper, that has predefined answers 

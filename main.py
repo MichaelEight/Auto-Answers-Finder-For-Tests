@@ -29,6 +29,7 @@ def create_matrix_for_correct_answers(filename):
 
 correct_answers_filename = "PoprawneOdpowiedzi.txt"
 correct_answers_matrix = create_matrix_for_correct_answers(correct_answers_filename)
+print("Odpowiedzi załadowane! Przygotowywanie prac...")
 
 # CALCULATE MAX POINTS
 def calculate_max_points(matrix):
@@ -72,6 +73,8 @@ def load_images_grayscale(image_paths):
     return grayscale_images
 
 paper_to_check_image_array = load_images_grayscale(paper_to_check_path_array)
+
+print("Prace załadowane! Przygotowywanie do korekty orientacji i skalowania...")
 
 ## PERFORM ORIENTATION AND SIZE CORRECTIONS
 def find_keypoints_and_descriptors(image):
@@ -125,6 +128,8 @@ for i, matches in enumerate(all_matches):
     aligned_img_path = f"PraceZorientowane/aligned_image_{i}.jpg"
     cv2.imwrite(aligned_img_path, aligned_img)
 
+print("Prace poprawione! Rozpoczynanie wykrywania odpowiedzi...")
+
 ### IMAGE ANSWERS DETECTION
 def load_config(config_path):
     with open(config_path, 'r') as file:
@@ -137,6 +142,7 @@ config = load_config('config.json')
 num_choices = 4 # A B C D
 proximity = config['image_processing']['circle_proximity_range'] # Constant for circle detection range
 marking_threshold = config['image_processing']['marking_threshold']
+marking_threshold_factor = config['image_processing']['marking_threshold_factor']
 circle_proximity_range = config['image_processing']['circle_proximity_range']
 box_width, box_height = config['image_processing']['box_size']
 num_questions = len(correct_answers_matrix)
@@ -178,8 +184,8 @@ def is_circled(img, center_x, center_y, box_size, proximity, dark_pixel_threshol
 def is_marked(box):
     # Simple heuristic: if the number of non-white pixels exceeds a threshold, it's marked
     # threshold = config['marking_threshold']
-    global box_width, box_height
-    threshold = 0.95 * box_width * box_height
+    global box_width, box_height, marking_threshold_factor
+    threshold = marking_threshold_factor * box_width * box_height
     non_white_pixels = np.sum(box < 255)  # Count non-white pixels
     return non_white_pixels < threshold
 
@@ -219,6 +225,7 @@ students_scored_points_array = []
 
 # Analyze all images
 for index, paper_to_check in enumerate(paper_to_check_image_aligned_array): 
+    print(f"Analizowanie pracy {index+1} z {len(paper_to_check_image_aligned_array)}")
     # Apply a binary threshold to the grayscale image
     _, thresh_example = cv2.threshold(paper_to_check, 128, 255, cv2.THRESH_BINARY_INV)
 
@@ -250,7 +257,8 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
                 foundCircles[question_num, choice_num] = 1
 
         safety_index += 1
-        if safety_index >= num_questions:
+        if safety_index >= num_questions * 4:
+            print("safety index exceeded 1")
             break
         
     safety_index = 0
@@ -272,7 +280,8 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
                 results[question_num, choice_num] = 1
             
         safety_index += 1
-        if safety_index >= num_questions:
+        if safety_index >= num_questions * 4:
+            print("safety index exceeded 2")
             break
 
     # Remove circled answers
@@ -322,14 +331,9 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
     corrected_image_path = f"PracePrzeanalizowane/corrected_and_detected_{index}.jpg"
     cv2.imwrite(corrected_image_path, paper_to_check_color)
 
+print("Ukończono analizowanie! Wyświetlam odpowiedzi...\n")
+
 ## OUTPUT LIST OF POINTS FOR EACH STUDENT'S ID
-# TO CONSOLE
-for score in students_scored_points_array:
-    print(score)
-# TO FILE
-# Current date and time
-now = datetime.now()
-date_time = now.strftime("%Y-%m-%d %H:%M")
 
 # PLACEHOLDER FOR STUDENTS IDS, TODO
 # Calculate 'n' based on the length of 'students_scored_points_array' + offset
@@ -337,10 +341,20 @@ n = len(students_scored_points_array) + 100000
 # Create a range for student IDs starting from 100000 to 'n'
 students_ids_array = list(range(100000, n))
 
-with open("WynikiTestu.txt", "w") as file:
+# TO CONSOLE
+for student_id, score in zip(students_ids_array, students_scored_points_array):
+        percentage = (score / correct_answers_max_points) * 100
+        print(f"{student_id}: {score}, {percentage:.2f}%")
+
+# TO FILE
+# Current date and time
+now = datetime.now()
+date_time = now.strftime("%Y-%m-%d %H:%M")
+
+with open("WynikiTestu.txt", "w", encoding='utf-8') as file:
     file.write(f"{date_time}\n")
-    file.write(f"Liczba pytan: {num_questions}\n")
-    file.write(f"Max punktow: {correct_answers_max_points}\n")
+    file.write(f"Liczba pytań: {num_questions}\n")
+    file.write(f"Max punktów: {correct_answers_max_points}\n")
     file.write("Wyniki:\n")
     
     # Assuming 'students_ids_array' matches the 'students_scored_points_array' by index

@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import json
 from datetime import datetime
+import time
 
 ## LOAD TXT FILE WITH CORRECT ANSWERS
 def load_file_with_answers(filename):
@@ -27,15 +28,6 @@ def create_matrix_for_correct_answers(filename):
         print("Error:", e)
         return None
 
-correct_answers_filename = "PoprawneOdpowiedzi.txt"
-correct_answers_matrix = create_matrix_for_correct_answers(correct_answers_filename)
-
-if len(correct_answers_matrix) > 48:
-    print("Za dużo odpowiedzi! Mamy tylko 48 miejsc.")
-    exit()
-print("Odpowiedzi załadowane! Przygotowywanie prac...")
-
-# CALCULATE MAX POINTS
 def calculate_max_points(matrix):
     if not matrix:
         return None
@@ -47,11 +39,6 @@ def calculate_max_points(matrix):
                 max_points += 1
     return max_points
 
-correct_answers_max_points = calculate_max_points(correct_answers_matrix)
-
-### IMAGE ORIENTATION AND SIZE CORRECTION
-
-## GET PATHS FOR ALL IMAGES IN THE FOLDER
 def find_image_files():
     image_extensions = ['.jpg', '.jpeg', '.png']  # Add more if needed
     image_files = []
@@ -62,13 +49,6 @@ def find_image_files():
                 image_files.append(os.path.join(root, file))
     return image_files
 
-paper_to_check_path_array = find_image_files()
-
-## GET PATH FOR TEMPLATE AND LOAD IT
-paper_template_path = 'Template.jpg'
-paper_template_image = cv2.imread(paper_template_path, 0)  # Load in grayscale
-
-## LOAD ALL REMAINING IMAGES
 def load_images_grayscale(image_paths):
     grayscale_images = []
     for path in image_paths:
@@ -76,87 +56,15 @@ def load_images_grayscale(image_paths):
         grayscale_images.append(img)
     return grayscale_images
 
-paper_to_check_image_array = load_images_grayscale(paper_to_check_path_array)
-
-print("Prace załadowane! Przygotowywanie do korekty orientacji i skalowania...")
-
-## PERFORM ORIENTATION AND SIZE CORRECTIONS
 def find_keypoints_and_descriptors(image):
     orb = cv2.ORB_create() # Initialize ORB detector
     keypoints, descriptors = orb.detectAndCompute(image, None)
     return keypoints, descriptors
 
-template_keypoints, template_descriptors = find_keypoints_and_descriptors(paper_template_image)
-
-paper_to_check_keypoints = []
-paper_to_check_descriptors = []
-
-for img in paper_to_check_image_array:
-    keypoints, descriptors = find_keypoints_and_descriptors(img)
-    paper_to_check_keypoints.append(keypoints)
-    paper_to_check_descriptors.append(descriptors)
-
-bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True) # Create BFMatcher object
-
-all_matches = []
-
-for descriptors in paper_to_check_descriptors:
-    matches = bf.match(template_descriptors, descriptors)
-    all_matches.append(matches)
-
-paper_to_check_image_aligned_array = []
-
-# Process matches
-for i, matches in enumerate(all_matches):
-    # Draw first 10 matches
-    matched_img = cv2.drawMatches(paper_template_image, template_keypoints, paper_to_check_image_array[i], paper_to_check_keypoints[i], matches[:10], None, flags=2)
-    
-    # Extract location of good matches
-    points1 = np.zeros((len(matches), 2), dtype=np.float32)
-    points2 = np.zeros((len(matches), 2), dtype=np.float32)
-
-    for j, match in enumerate(matches):
-        points1[j, :] = template_keypoints[match.queryIdx].pt
-        points2[j, :] = paper_to_check_keypoints[i][match.trainIdx].pt
-    
-    # Find homography
-    h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
-
-    # Use homography
-    height, width = paper_template_image.shape
-    aligned_img = cv2.warpPerspective(paper_to_check_image_array[i], h, (width, height))
-    
-    paper_to_check_image_aligned_array.append(aligned_img)
-
-    # Save the transformed image
-    aligned_img_path = f"PraceZorientowane/aligned_image_{i}.jpg"
-    cv2.imwrite(aligned_img_path, aligned_img)
-
-print("Prace poprawione! Rozpoczynanie wykrywania odpowiedzi...")
-
-### IMAGE ANSWERS DETECTION
 def load_config(config_path):
     with open(config_path, 'r') as file:
         config = json.load(file)
     return config
-
-# Load the configuration file
-config = load_config('config.json')
-
-num_choices = 4 # A B C D
-proximity = config['image_processing']['circle_proximity_range'] # Constant for circle detection range
-marking_threshold = config['image_processing']['marking_threshold']
-marking_threshold_factor = config['image_processing']['marking_threshold_factor']
-circle_proximity_range = config['image_processing']['circle_proximity_range']
-box_width, box_height = config['image_processing']['box_size']
-num_questions = len(correct_answers_matrix)
-
-id_box_x, id_box_y = config['index']['starting_box_position']
-id_box_width, id_box_height = config['index']['box_size']
-id_box_offset_x, id_box_offset_y = config['index']['offset']
-
-# Apply a binary threshold to the grayscale image
-_, thresh_template = cv2.threshold(paper_template_image, 128, 255, cv2.THRESH_BINARY_INV)
 
 def is_circled(img, center_x, center_y, box_size, proximity, dark_pixel_threshold):
     # Define how many pixels larger the exclusion zone should be
@@ -227,6 +135,109 @@ def overlay_rectangle(img, top_left, bottom_right, color, opacity=0.7):
     overlay = img.copy()
     cv2.rectangle(overlay, top_left, bottom_right, color, -1)
     cv2.addWeighted(overlay, opacity, img, 1 - opacity, 0, img)
+
+
+
+start_time = time.time()
+
+correct_answers_filename = "PoprawneOdpowiedzi.txt"
+correct_answers_matrix = create_matrix_for_correct_answers(correct_answers_filename)
+
+if len(correct_answers_matrix) > 48:
+    print("Za dużo odpowiedzi! Mamy tylko 48 miejsc.")
+    exit()
+print("Odpowiedzi załadowane! Przygotowywanie prac...")
+
+# CALCULATE MAX POINTS
+
+correct_answers_max_points = calculate_max_points(correct_answers_matrix)
+
+### IMAGE ORIENTATION AND SIZE CORRECTION
+
+## GET PATHS FOR ALL IMAGES IN THE FOLDER
+
+paper_to_check_path_array = find_image_files()
+
+## GET PATH FOR TEMPLATE AND LOAD IT
+paper_template_path = 'Template.jpg'
+paper_template_image = cv2.imread(paper_template_path, 0)  # Load in grayscale
+
+## LOAD ALL REMAINING IMAGES
+
+paper_to_check_image_array = load_images_grayscale(paper_to_check_path_array)
+
+print("Prace załadowane! Przygotowywanie do korekty orientacji i skalowania...")
+
+## PERFORM ORIENTATION AND SIZE CORRECTIONS
+
+template_keypoints, template_descriptors = find_keypoints_and_descriptors(paper_template_image)
+
+paper_to_check_keypoints = []
+paper_to_check_descriptors = []
+
+for img in paper_to_check_image_array:
+    keypoints, descriptors = find_keypoints_and_descriptors(img)
+    paper_to_check_keypoints.append(keypoints)
+    paper_to_check_descriptors.append(descriptors)
+
+bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True) # Create BFMatcher object
+
+all_matches = []
+
+for descriptors in paper_to_check_descriptors:
+    matches = bf.match(template_descriptors, descriptors)
+    all_matches.append(matches)
+
+paper_to_check_image_aligned_array = []
+
+# Process matches
+for i, matches in enumerate(all_matches):
+    # Draw first 10 matches
+    matched_img = cv2.drawMatches(paper_template_image, template_keypoints, paper_to_check_image_array[i], paper_to_check_keypoints[i], matches[:10], None, flags=2)
+    
+    # Extract location of good matches
+    points1 = np.zeros((len(matches), 2), dtype=np.float32)
+    points2 = np.zeros((len(matches), 2), dtype=np.float32)
+
+    for j, match in enumerate(matches):
+        points1[j, :] = template_keypoints[match.queryIdx].pt
+        points2[j, :] = paper_to_check_keypoints[i][match.trainIdx].pt
+    
+    # Find homography
+    h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
+
+    # Use homography
+    height, width = paper_template_image.shape
+    aligned_img = cv2.warpPerspective(paper_to_check_image_array[i], h, (width, height))
+    
+    paper_to_check_image_aligned_array.append(aligned_img)
+
+    # Save the transformed image
+    aligned_img_path = f"PraceZorientowane/aligned_image_{i}.jpg"
+    cv2.imwrite(aligned_img_path, aligned_img)
+
+print("Prace poprawione! Rozpoczynanie wykrywania odpowiedzi...")
+
+### IMAGE ANSWERS DETECTION
+
+# Load the configuration file
+config = load_config('config.json')
+
+num_choices = 4 # A B C D
+proximity = config['image_processing']['circle_proximity_range'] # Constant for circle detection range
+marking_threshold = config['image_processing']['marking_threshold']
+marking_threshold_factor = config['image_processing']['marking_threshold_factor']
+circle_proximity_range = config['image_processing']['circle_proximity_range']
+box_width, box_height = config['image_processing']['box_size']
+num_questions = len(correct_answers_matrix)
+
+id_box_x, id_box_y = config['index']['starting_box_position']
+id_box_width, id_box_height = config['index']['box_size']
+id_box_offset_x, id_box_offset_y = config['index']['offset']
+
+# Apply a binary threshold to the grayscale image
+_, thresh_template = cv2.threshold(paper_template_image, 128, 255, cv2.THRESH_BINARY_INV)
+
 
 # Constants for colors in BGR format
 LIGHT_GREEN = (0, 255, 0)
@@ -396,3 +407,8 @@ with open("WynikiTestu.txt", "w", encoding='utf-8') as file:
     for student_id, score in zip(students_ids_array, students_scored_points_array):
         percentage = (score / correct_answers_max_points) * 100
         file.write(f"{student_id}: {score}, {percentage:.2f}%\n")
+
+end_time = time.time()
+execution_time = end_time - start_time
+
+print(f"Execution time: {execution_time} seconds")

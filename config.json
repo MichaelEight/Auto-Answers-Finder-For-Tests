@@ -1,6 +1,7 @@
 {
     "box_size": [54, 54],
     "marking_threshold": 2375,
+	"circle_proximity_range": 30,
     "box_centers": [
         {"question": 1, "choice": "A", "center": [435, 1167]},
         {"question": 1, "choice": "B", "center": [557, 1167]},

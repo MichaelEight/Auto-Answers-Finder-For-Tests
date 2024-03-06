@@ -1,21 +1,8 @@
-- Make a folder for works to check. Any name will do. Just get through them.
 - Generate checked files (mark recognized answers, GREEN marked, YELLOW circled, RED none),
 so user can quickly go through them and see visually if something's off
-- 
+- create a better way than inputting all coords for boxes' centers
 
 - General tests on irl scanned papers
-
-
-1. User copy-pastes scanned papers into "Prace do Sprawdzenia" folder
-2. User edits "Poprawne Odpowiedzi.txt" file
-3. User starts app
-4. App orients/scales the papers
-5. App reads answers and student's ID
-6. App displays (and outputs to "wyniki.txt") list of students and their points / max points
-7. App outputs edited papers - oriented, scaled and answers marked:
-    GREEN marked, RED circled, (optional) YELLOW/GRAY none
-
-
 
 
 CORRECT TEMPLATE -- make each square more pretty number (more round)

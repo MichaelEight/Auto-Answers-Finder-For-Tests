@@ -134,7 +134,7 @@ def load_config(config_path):
 config = load_config('config.json')
 
 num_choices = 4 # A B C D
-proximity = 30 # Just some constant
+proximity = config['circle_proximity_range'] # Constant for circle detection range
 num_questions = len(correct_answers_matrix)
 
 # Apply a binary threshold to the grayscale image
@@ -190,17 +190,39 @@ def compare_matrices(template_matrix, example_matrix):
         score = max(0, score)  # Cap the score at 0 if it becomes negative
     return score
 
+def overlay_rectangle(img, top_left, bottom_right, color, opacity=0.7):
+    """
+    Overlays a semi-transparent rectangle on the image.
+    
+    Parameters:
+    - img: The image to overlay on.
+    - top_left: Tuple (x, y) of the top left corner of the rectangle.
+    - bottom_right: Tuple (x, y) of the bottom right corner of the rectangle.
+    - color: Tuple (B, G, R) specifying the color of the rectangle.
+    - opacity: Opacity of the overlay.
+    """
+    overlay = img.copy()
+    cv2.rectangle(overlay, top_left, bottom_right, color, -1)
+    cv2.addWeighted(overlay, opacity, img, 1 - opacity, 0, img)
+
+# Constants for colors in BGR format
+LIGHT_GREEN = (0, 255, 0)
+LIGHT_RED = (0, 0, 255)
+GRAY = (128, 128, 128)
+
 students_results_array = []
 students_scored_points_array = []
 
 # Analyze all images
-for paper_to_check in paper_to_check_image_aligned_array:
+for index, paper_to_check in enumerate(paper_to_check_image_aligned_array): 
     # Apply a binary threshold to the grayscale image
     _, thresh_example = cv2.threshold(paper_to_check, 128, 255, cv2.THRESH_BINARY_INV)
 
     # DETECT MARKED (AND CIRCLED) ANSWERS + STUDENT'S ID, RETURN ARRAY
     foundCircles = np.zeros((num_questions, num_choices), dtype=int)
     results = np.zeros((num_questions, num_choices), dtype=int) 
+
+    safety_index = 0
 
     # Detected circles
     for box_info in config['box_centers']:
@@ -222,7 +244,12 @@ for paper_to_check in paper_to_check_image_aligned_array:
         # If not circled, check if it is marked
         elif is_marked(box_example):
             foundCircles[question_num, choice_num] = 1
+
+        safety_index += 1
+        if safety_index >= num_questions * 4:
+            break
         
+    safety_index = 0
     # Detect marked answers
     for box_info in config['box_centers']:
         question_num = box_info['question'] - 1  # Subtract 1 to convert to 0-index
@@ -239,6 +266,10 @@ for paper_to_check in paper_to_check_image_aligned_array:
 
         if is_marked(box_example):
             results[question_num, choice_num] = 1
+        
+        safety_index += 1
+        if safety_index >= num_questions * 4:
+            break
 
     # Remove circled answers
     for i in range(num_questions):
@@ -253,7 +284,38 @@ for paper_to_check in paper_to_check_image_aligned_array:
     score = compare_matrices(correct_answers_matrix, results)
     students_scored_points_array.append(score)
 
+    # Convert the grayscale image to BGR to apply colored overlays
+    paper_to_check_color = cv2.cvtColor(paper_to_check, cv2.COLOR_GRAY2BGR)
+
+    safety_index = 0
+
     # SAVE NEW IMAGE AS "CORRECTED_AND_DETECTED" (to later validate detection)
+    for box_info in config['box_centers']:
+        question_num = box_info['question'] - 1
+        choice_num = ord(box_info['choice']) - ord('A')
+        center_x, center_y = box_info['center']
+        box_width, box_height = config['box_size']
+        x_start = center_x - box_width // 2
+        y_start = center_y - box_height // 2
+        x_end = x_start + box_width
+        y_end = y_start + box_height
+        
+        if foundCircles[question_num, choice_num] == 1:
+            # Marked and circled
+            overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), LIGHT_RED)
+        elif results[question_num, choice_num] == 1:
+            # Marked but not circled
+            overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), LIGHT_GREEN)
+        else:
+            # Not marked
+            overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), GRAY)
+    
+        safety_index += 1
+        if safety_index >= num_questions * 4:
+            break
+    # Save the modified image
+    corrected_image_path = f"PracePrzeanalizowane/corrected_and_detected_{index}.jpg"
+    cv2.imwrite(corrected_image_path, paper_to_check_color)
 
 ## OUTPUT LIST OF POINTS FOR EACH STUDENT'S ID
 # TO CONSOLE

@@ -1,5 +1,3 @@
-- Generate checked files (mark recognized answers, GREEN marked, YELLOW circled, RED none),
-so user can quickly go through them and see visually if something's off
 - create a better way than inputting all coords for boxes' centers
 
 - General tests on irl scanned papers

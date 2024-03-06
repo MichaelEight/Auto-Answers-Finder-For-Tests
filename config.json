@@ -1,26 +1,50 @@
 {
+  "test_metadata": {
+    "version": "2.0",
+    "date": "2024-03-06",
+    "description": "Standard 4-choice questionnaire"
+  },
+  "image_processing": {
     "box_size": [54, 54],
     "marking_threshold": 2375,
-	"circle_proximity_range": 30,
-    "box_centers": [
-        {"question": 1, "choice": "A", "center": [435, 1167]},
-        {"question": 1, "choice": "B", "center": [557, 1167]},
-        {"question": 1, "choice": "C", "center": [679, 1167]},
-        {"question": 1, "choice": "D", "center": [799, 1167]},
-
-        {"question": 2, "choice": "A", "center": [435, 1289]},
-        {"question": 2, "choice": "B", "center": [557, 1289]},
-        {"question": 2, "choice": "C", "center": [679, 1289]},
-        {"question": 2, "choice": "D", "center": [799, 1289]},
-
-        {"question": 3, "choice": "A", "center": [435, 1410]},
-        {"question": 3, "choice": "B", "center": [557, 1410]},
-        {"question": 3, "choice": "C", "center": [679, 1410]},
-        {"question": 3, "choice": "D", "center": [799, 1410]},
-
-        {"question": 4, "choice": "A", "center": [435, 1533]},
-        {"question": 4, "choice": "B", "center": [557, 1533]},
-        {"question": 4, "choice": "C", "center": [679, 1533]},
-        {"question": 4, "choice": "D", "center": [799, 1533]}        
-    ]
+    "circle_proximity_range": 30
+  },
+  "questions": [
+    {
+      "number": 1,
+      "choices": [
+        {"label": "A", "center": [435, 1167]},
+        {"label": "B", "center": [557, 1167]},
+        {"label": "C", "center": [679, 1167]},
+        {"label": "D", "center": [799, 1167]}
+      ]
+    },
+    {
+      "number": 2,
+      "choices": [
+        {"label": "A", "center": [435, 1289]},
+        {"label": "B", "center": [557, 1289]},
+        {"label": "C", "center": [679, 1289]},
+        {"label": "D", "center": [799, 1289]}
+      ]
+    },
+	{
+      "number": 3,
+      "choices": [
+        {"label": "A", "center": [435, 1410]},
+        {"label": "B", "center": [557, 1410]},
+        {"label": "C", "center": [679, 1410]},
+        {"label": "D", "center": [799, 1410]}
+      ]
+    },
+	{
+      "number": 4,
+      "choices": [
+        {"label": "A", "center": [435, 1533]},
+        {"label": "B", "center": [557, 1533]},
+        {"label": "C", "center": [679, 1533]},
+        {"label": "D", "center": [799, 1533]}
+      ]
+    }
+  ]
 }

@@ -135,7 +135,10 @@ def load_config(config_path):
 config = load_config('config.json')
 
 num_choices = 4 # A B C D
-proximity = config['circle_proximity_range'] # Constant for circle detection range
+proximity = config['image_processing']['circle_proximity_range'] # Constant for circle detection range
+marking_threshold = config['image_processing']['marking_threshold']
+circle_proximity_range = config['image_processing']['circle_proximity_range']
+box_width, box_height = config['image_processing']['box_size']
 num_questions = len(correct_answers_matrix)
 
 # Apply a binary threshold to the grayscale image
@@ -175,7 +178,7 @@ def is_circled(img, center_x, center_y, box_size, proximity, dark_pixel_threshol
 def is_marked(box):
     # Simple heuristic: if the number of non-white pixels exceeds a threshold, it's marked
     # threshold = config['marking_threshold']
-    box_width, box_height = config['box_size']
+    global box_width, box_height
     threshold = 0.95 * box_width * box_height
     non_white_pixels = np.sum(box < 255)  # Count non-white pixels
     return non_white_pixels < threshold
@@ -226,50 +229,50 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
     safety_index = 0
 
     # Detected circles
-    for box_info in config['box_centers']:
-        question_num = box_info['question'] - 1  # Subtract 1 to convert to 0-index
-        choice_num = ord(box_info['choice']) - ord('A')  # Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
-        center_x, center_y = box_info['center']
-        box_width, box_height = config['box_size']
+    for question in config['questions']:
+        question_num = question['number'] - 1  # Adjust for zero-indexing
+        for choice in question['choices']:
+            choice_num = ord(choice['label']) - ord('A')  # Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
+            center_x, center_y = choice['center']
 
-        # Calculate the top-left corner of the box
-        x_start = center_x - box_width // 2
-        y_start = center_y - box_height // 2
+            # Calculate the top-left corner of the box
+            x_start = center_x - box_width // 2
+            y_start = center_y - box_height // 2
 
-        # Extract the box regions from both template and example images
-        box_example = thresh_example[y_start:y_start+box_height, x_start:x_start+box_width]
+            # Extract the box regions from both template and example images
+            box_example = thresh_example[y_start:y_start+box_height, x_start:x_start+box_width]
 
-        # Check if the box is circled first
-        if is_circled(thresh_example, center_x, center_y, box_width, proximity, 8000):
-            foundCircles[question_num, choice_num] = 0
-        # If not circled, check if it is marked
-        elif is_marked(box_example):
-            foundCircles[question_num, choice_num] = 1
+            # Check if the box is circled first
+            if is_circled(thresh_example, center_x, center_y, box_width, proximity, 8000):
+                foundCircles[question_num, choice_num] = 0
+            # If not circled, check if it is marked
+            elif is_marked(box_example):
+                foundCircles[question_num, choice_num] = 1
 
         safety_index += 1
-        if safety_index >= num_questions * 4:
+        if safety_index >= num_questions:
             break
         
     safety_index = 0
     # Detect marked answers
-    for box_info in config['box_centers']:
-        question_num = box_info['question'] - 1  # Subtract 1 to convert to 0-index
-        choice_num = ord(box_info['choice']) - ord('A')  # Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
-        center_x, center_y = box_info['center']
-        box_width, box_height = config['box_size']
+    for question in config['questions']:
+        question_num = question['number'] - 1
+        for choice in question['choices']:
+            choice_num = ord(choice['label']) - ord('A')
+            center_x, center_y = choice['center']
 
-        # Calculate the top-left corner of the box
-        x_start = center_x - box_width // 2
-        y_start = center_y - box_height // 2
+            # Calculate the top-left corner of the box
+            x_start = center_x - box_width // 2
+            y_start = center_y - box_height // 2
 
-        # Extract the box regions from both template and example images
-        box_example = thresh_example[y_start:y_start+box_height, x_start:x_start+box_width]
+            # Extract the box regions from both template and example images
+            box_example = thresh_example[y_start:y_start+box_height, x_start:x_start+box_width]
 
-        if is_marked(box_example):
-            results[question_num, choice_num] = 1
-        
+            if is_marked(box_example):
+                results[question_num, choice_num] = 1
+            
         safety_index += 1
-        if safety_index >= num_questions * 4:
+        if safety_index >= num_questions:
             break
 
     # Remove circled answers
@@ -291,29 +294,30 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
     safety_index = 0
 
     # SAVE NEW IMAGE AS "CORRECTED_AND_DETECTED" (to later validate detection)
-    for box_info in config['box_centers']:
-        question_num = box_info['question'] - 1
-        choice_num = ord(box_info['choice']) - ord('A')
-        center_x, center_y = box_info['center']
-        box_width, box_height = config['box_size']
-        x_start = center_x - box_width // 2
-        y_start = center_y - box_height // 2
-        x_end = x_start + box_width
-        y_end = y_start + box_height
-        
-        if foundCircles[question_num, choice_num] == 1:
-            # Marked and circled
-            overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), LIGHT_RED)
-        elif results[question_num, choice_num] == 1:
-            # Marked but not circled
-            overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), LIGHT_GREEN)
-        else:
-            # Not marked
-            overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), GRAY)
+    for question in config['questions']:
+        question_num = question['number'] - 1
+        for choice in question['choices']:
+            choice_num = ord(choice['label']) - ord('A')
+            center_x, center_y = choice['center']
+            x_start = center_x - box_width // 2
+            y_start = center_y - box_height // 2
+            x_end = x_start + box_width
+            y_end = y_start + box_height
+            
+            if foundCircles[question_num, choice_num] == 1:
+                # Marked and circled
+                overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), LIGHT_RED)
+            elif results[question_num, choice_num] == 1:
+                # Marked but not circled
+                overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), LIGHT_GREEN)
+            else:
+                # Not marked
+                overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), GRAY)
     
         safety_index += 1
-        if safety_index >= num_questions * 4:
+        if safety_index >= num_questions:
             break
+
     # Save the modified image
     corrected_image_path = f"PracePrzeanalizowane/corrected_and_detected_{index}.jpg"
     cv2.imwrite(corrected_image_path, paper_to_check_color)

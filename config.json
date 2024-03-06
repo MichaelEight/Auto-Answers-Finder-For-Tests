@@ -10,6 +10,12 @@
     "marking_threshold_factor": 0.90,
     "circle_proximity_range": 30
   },
+  "index":
+  {
+    "starting_box_position": [1588, 475],
+    "box_size": [45, 45],
+    "offset": [53, 53]
+  },
   "questions": [
     {
       "number": 1,

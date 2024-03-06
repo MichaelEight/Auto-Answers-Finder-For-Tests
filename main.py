@@ -151,6 +151,10 @@ circle_proximity_range = config['image_processing']['circle_proximity_range']
 box_width, box_height = config['image_processing']['box_size']
 num_questions = len(correct_answers_matrix)
 
+id_box_x, id_box_y = config['index']['starting_box_position']
+id_box_width, id_box_height = config['index']['box_size']
+id_box_offset_x, id_box_offset_y = config['index']['offset']
+
 # Apply a binary threshold to the grayscale image
 _, thresh_template = cv2.threshold(paper_template_image, 128, 255, cv2.THRESH_BINARY_INV)
 
@@ -185,13 +189,18 @@ def is_circled(img, center_x, center_y, box_size, proximity, dark_pixel_threshol
 
     return dark_pixels_outside_box > dark_pixel_threshold
 
-def is_marked(box):
-    # Simple heuristic: if the number of non-white pixels exceeds a threshold, it's marked
-    # threshold = config['marking_threshold']
-    global box_width, box_height, marking_threshold_factor
-    threshold = marking_threshold_factor * box_width * box_height
-    non_white_pixels = np.sum(box < 255)  # Count non-white pixels
-    return non_white_pixels < threshold
+def is_marked(box, isCheckingId = False):
+    global id_box_width, id_box_height, marking_threshold_factor, box_width, box_height
+    if(isCheckingId):
+        threshold = marking_threshold_factor * id_box_width * id_box_height
+        non_white_pixels = np.sum(box < 255)  # Count non-white pixels
+        return non_white_pixels < threshold
+    else:
+        # Simple heuristic: if the number of non-white pixels exceeds a threshold, it's marked
+        # threshold = config['marking_threshold']
+        threshold = marking_threshold_factor * box_width * box_height
+        non_white_pixels = np.sum(box < 255)  # Count non-white pixels
+        return non_white_pixels < threshold
 
 def compare_matrices(template_matrix, example_matrix):
     score = 0
@@ -224,16 +233,63 @@ LIGHT_GREEN = (0, 255, 0)
 LIGHT_RED = (0, 0, 255)
 GRAY = (128, 128, 128)
 
+students_ids_array = []
 students_results_array = []
 students_scored_points_array = []
+
+def overlay_rectangle_student_id(img, top_left, box_size, color, opacity=0.5):
+    """
+    Overlays a semi-transparent square on the image.
+    
+    Parameters:
+    - img: The image to overlay on.
+    - top_left: Tuple (x, y) of the top left corner of the square.
+    - box_size: The size (width and height) of the square.
+    - color: Tuple (B, G, R) specifying the color of the square.
+    - opacity: Opacity of the overlay.
+    """
+    overlay = img.copy()
+    bottom_right = (top_left[0] + box_size, top_left[1] + box_size)
+    cv2.rectangle(overlay, top_left, bottom_right, color, -1)
+    cv2.addWeighted(overlay, opacity, img, 1 - opacity, 0, img)
 
 # Analyze all images
 for index, paper_to_check in enumerate(paper_to_check_image_aligned_array): 
     print(f"Analizowanie pracy {index+1} z {len(paper_to_check_image_aligned_array)}")
     # Apply a binary threshold to the grayscale image
     _, thresh_example = cv2.threshold(paper_to_check, 128, 255, cv2.THRESH_BINARY_INV)
+    paper_to_check_color = cv2.cvtColor(paper_to_check, cv2.COLOR_GRAY2BGR)  # Convert to BGR to apply colored overlay
 
-    # DETECT MARKED (AND CIRCLED) ANSWERS + STUDENT'S ID, RETURN ARRAY
+    # DETECT STUDENT'S ID
+    student_id = ""
+    for col in range(7):
+        for row in range(10):
+            x = id_box_x + col * id_box_offset_x - id_box_width // 2
+            y = id_box_y + row * id_box_offset_y - id_box_height // 2
+            box = thresh_example[y:y+id_box_height, x:x+id_box_width]
+
+            if is_marked(box, True):
+                row = row + 1
+                if row == 10:
+                    row = 0
+                student_id += str(row)  # Append the detected digit
+
+                # Draw a green rectangle around the detected box
+                overlay_rectangle_student_id(paper_to_check_color, (x, y), id_box_width, LIGHT_GREEN)
+
+                break
+        else:
+            # If no mark was detected in this column, append a space
+            student_id += " "
+
+    student_id = student_id.strip()
+    if(" " in student_id or len(student_id) < 6):
+        print(f"Błąd w odczycie indeksu dla pracy nr {index}")
+        student_id = "------"
+        
+    students_ids_array.append(student_id)
+
+    # DETECT MARKED (AND CIRCLED) ANSWERS, RETURN ARRAY
     foundCircles = np.zeros((num_questions, num_choices), dtype=int)
     results = np.zeros((num_questions, num_choices), dtype=int) 
 
@@ -302,10 +358,7 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
 
     # CALCULATE POINTS
     score = compare_matrices(correct_answers_matrix, results)
-    students_scored_points_array.append(score)
-
-    # Convert the grayscale image to BGR to apply colored overlays
-    paper_to_check_color = cv2.cvtColor(paper_to_check, cv2.COLOR_GRAY2BGR)
+    students_scored_points_array.append(score) 
 
     safety_index = 0
 
@@ -343,11 +396,6 @@ print("Ukończono analizowanie! Wyświetlam odpowiedzi...\n")
 ## OUTPUT LIST OF POINTS FOR EACH STUDENT'S ID
 
 # PLACEHOLDER FOR STUDENTS IDS, TODO
-# Calculate 'n' based on the length of 'students_scored_points_array' + offset
-n = len(students_scored_points_array) + 100000
-# Create a range for student IDs starting from 100000 to 'n'
-students_ids_array = list(range(100000, n))
-
 # TO CONSOLE
 for student_id, score in zip(students_ids_array, students_scored_points_array):
         percentage = (score / correct_answers_max_points) * 100

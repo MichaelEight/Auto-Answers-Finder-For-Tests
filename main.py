@@ -3,6 +3,7 @@ import os
 import cv2
 import numpy as np
 import json
+from datetime import datetime
 
 ## LOAD TXT FILE WITH CORRECT ANSWERS
 def load_file_with_answers(filename):
@@ -322,3 +323,24 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
 for score in students_scored_points_array:
     print(score)
 # TO FILE
+# Current date and time
+now = datetime.now()
+date_time = now.strftime("%Y-%m-%d %H:%M")
+
+# PLACEHOLDER FOR STUDENTS IDS, TODO
+# Calculate 'n' based on the length of 'students_scored_points_array' + offset
+n = len(students_scored_points_array) + 100000
+# Create a range for student IDs starting from 100000 to 'n'
+students_ids_array = list(range(100000, n))
+
+with open("WynikiTestu.txt", "w") as file:
+    file.write(f"{date_time}\n")
+    file.write(f"Liczba pytan: {num_questions}\n")
+    file.write(f"Max punktow: {correct_answers_max_points}\n")
+    file.write("Wyniki:\n")
+    
+    # Assuming 'students_ids_array' matches the 'students_scored_points_array' by index
+    # If you don't have a students_ids_array, you'll need to adjust this part
+    for student_id, score in zip(students_ids_array, students_scored_points_array):
+        percentage = (score / correct_answers_max_points) * 100
+        file.write(f"{student_id}: {score}, {percentage:.2f}%\n")

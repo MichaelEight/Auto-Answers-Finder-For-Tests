@@ -25,7 +25,7 @@ def create_matrix_for_correct_answers(filename):
         return data
     except Exception as e:
         print("Error:", e)
-        return None
+        quit()
 
 correct_answers_filename = "PoprawneOdpowiedzi.txt"
 correct_answers_matrix = create_matrix_for_correct_answers(correct_answers_filename)
@@ -268,7 +268,7 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
 
     student_id = student_id.strip()
     if(" " in student_id or len(student_id) < 6):
-        print(f"Błąd w odczycie indeksu dla pracy nr {index}")
+        print(f"Błąd w odczycie indeksu dla pracy nr {index+1}")
         student_id = "------"
 
     students_ids_array.append(student_id)

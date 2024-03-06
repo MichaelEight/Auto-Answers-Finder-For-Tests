@@ -378,16 +378,13 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
 print("Ukończono analizowanie! Wyświetlam odpowiedzi...\n")
 
 ## OUTPUT LIST OF POINTS FOR EACH STUDENT'S ID
-
-# PLACEHOLDER FOR STUDENTS IDS, TODO
 # TO CONSOLE
 for student_id, score in zip(students_ids_array, students_scored_points_array):
         percentage = (score / correct_answers_max_points) * 100
         print(f"{student_id}: {score}, {percentage:.2f}%")
 
 # TO FILE
-# Current date and time
-now = datetime.now()
+now = datetime.now() # Current date and time
 date_time = now.strftime("%Y-%m-%d %H:%M")
 
 with open("WynikiTestu.txt", "w", encoding='utf-8') as file:
@@ -396,8 +393,6 @@ with open("WynikiTestu.txt", "w", encoding='utf-8') as file:
     file.write(f"Max punktów: {correct_answers_max_points}\n")
     file.write("Wyniki:\n")
     
-    # Assuming 'students_ids_array' matches the 'students_scored_points_array' by index
-    # If you don't have a students_ids_array, you'll need to adjust this part
     for student_id, score in zip(students_ids_array, students_scored_points_array):
         percentage = (score / correct_answers_max_points) * 100
         file.write(f"{student_id}: {score}, {percentage:.2f}%\n")

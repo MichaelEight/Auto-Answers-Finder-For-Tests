@@ -1,5 +1,4 @@
 - to config add scale of whiteness for detection (if paper is too gray)
-- if ID error, provide name of the image
 
 - General tests on irl scanned papers
 

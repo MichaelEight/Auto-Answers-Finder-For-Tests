@@ -238,6 +238,9 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
     # Detected circles
     for question in config['questions']:
         question_num = question['number'] - 1  # Adjust for zero-indexing
+        if question_num >= num_questions: # Skip questions if it exceeds 
+            continue  # Skip this question
+
         for choice in question['choices']:
             choice_num = ord(choice['label']) - ord('A')  # Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
             center_x, center_y = choice['center']

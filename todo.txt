@@ -1,4 +1,6 @@
 - create a better way than inputting all coords for boxes' centers
+- index detection
+- answers cannot be longer than 48 rows
 
 - General tests on irl scanned papers
 
@@ -6,4 +8,5 @@
 CORRECT TEMPLATE -- make each square more pretty number (more round)
 
 
-introduce autocalibration -- example paper, that has predefined answers 
+introduce autocalibration -- example paper, that has predefined answers
+also calibration for default threshold -- determine best values down to .XXX

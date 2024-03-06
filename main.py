@@ -29,6 +29,10 @@ def create_matrix_for_correct_answers(filename):
 
 correct_answers_filename = "PoprawneOdpowiedzi.txt"
 correct_answers_matrix = create_matrix_for_correct_answers(correct_answers_filename)
+
+if len(correct_answers_matrix) > 48:
+    print("Za dużo odpowiedzi! Mamy tylko 48 miejsc.")
+    exit()
 print("Odpowiedzi załadowane! Przygotowywanie prac...")
 
 # CALCULATE MAX POINTS

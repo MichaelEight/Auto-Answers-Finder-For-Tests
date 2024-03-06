@@ -191,16 +191,16 @@ def is_circled(img, center_x, center_y, box_size, proximity, dark_pixel_threshol
 
 def is_marked(box, isCheckingId = False):
     global id_box_width, id_box_height, marking_threshold_factor, box_width, box_height
+
+    threshold = marking_threshold_factor
+
     if(isCheckingId):
-        threshold = marking_threshold_factor * id_box_width * id_box_height
-        non_white_pixels = np.sum(box < 255)  # Count non-white pixels
-        return non_white_pixels < threshold
+        threshold *= id_box_width * id_box_height
     else:
-        # Simple heuristic: if the number of non-white pixels exceeds a threshold, it's marked
-        # threshold = config['marking_threshold']
-        threshold = marking_threshold_factor * box_width * box_height
-        non_white_pixels = np.sum(box < 255)  # Count non-white pixels
-        return non_white_pixels < threshold
+        threshold *= box_width * box_height
+
+    non_white_pixels = np.sum(box < 255)  # Count non-white pixels
+    return non_white_pixels < threshold
 
 def compare_matrices(template_matrix, example_matrix):
     score = 0
@@ -237,22 +237,6 @@ students_ids_array = []
 students_results_array = []
 students_scored_points_array = []
 
-def overlay_rectangle_student_id(img, top_left, box_size, color, opacity=0.5):
-    """
-    Overlays a semi-transparent square on the image.
-    
-    Parameters:
-    - img: The image to overlay on.
-    - top_left: Tuple (x, y) of the top left corner of the square.
-    - box_size: The size (width and height) of the square.
-    - color: Tuple (B, G, R) specifying the color of the square.
-    - opacity: Opacity of the overlay.
-    """
-    overlay = img.copy()
-    bottom_right = (top_left[0] + box_size, top_left[1] + box_size)
-    cv2.rectangle(overlay, top_left, bottom_right, color, -1)
-    cv2.addWeighted(overlay, opacity, img, 1 - opacity, 0, img)
-
 # Analyze all images
 for index, paper_to_check in enumerate(paper_to_check_image_aligned_array): 
     print(f"Analizowanie pracy {index+1} z {len(paper_to_check_image_aligned_array)}")
@@ -275,7 +259,7 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
                 student_id += str(row)  # Append the detected digit
 
                 # Draw a green rectangle around the detected box
-                overlay_rectangle_student_id(paper_to_check_color, (x, y), id_box_width, LIGHT_GREEN)
+                overlay_rectangle(paper_to_check_color, (x, y), (x + id_box_width, y + id_box_height), LIGHT_GREEN)
 
                 break
         else:
@@ -286,7 +270,7 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
     if(" " in student_id or len(student_id) < 6):
         print(f"Błąd w odczycie indeksu dla pracy nr {index}")
         student_id = "------"
-        
+
     students_ids_array.append(student_id)
 
     # DETECT MARKED (AND CIRCLED) ANSWERS, RETURN ARRAY

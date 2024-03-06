@@ -154,6 +154,294 @@
         {"label": "C", "center": [679, 3008]},
         {"label": "D", "center": [799, 3008]}
       ]
+    },
+	{
+      "number": 17,
+      "choices": [
+        {"label": "A", "center": [1055, 1167]},
+        {"label": "B", "center": [1177, 1167]},
+        {"label": "C", "center": [1298, 1167]},
+        {"label": "D", "center": [1420, 1167]}
+      ]
+    },
+    {
+      "number": 18,
+      "choices": [
+        {"label": "A", "center": [1055, 1289]},
+        {"label": "B", "center": [1177, 1289]},
+        {"label": "C", "center": [1298, 1289]},
+        {"label": "D", "center": [1420, 1289]}
+      ]
+    },
+	{
+      "number": 19,
+      "choices": [
+        {"label": "A", "center": [1055, 1410]},
+        {"label": "B", "center": [1177, 1410]},
+        {"label": "C", "center": [1298, 1410]},
+        {"label": "D", "center": [1420, 1410]}
+      ]
+    },
+	{
+      "number": 20,
+      "choices": [
+        {"label": "A", "center": [1055, 1533]},
+        {"label": "B", "center": [1177, 1533]},
+        {"label": "C", "center": [1298, 1533]},
+        {"label": "D", "center": [1420, 1533]}
+      ]
+    },
+	{
+      "number": 21,
+      "choices": [
+        {"label": "A", "center": [1055, 1658]},
+        {"label": "B", "center": [1177, 1658]},
+        {"label": "C", "center": [1298, 1658]},
+        {"label": "D", "center": [1420, 1658]}
+      ]
+    },
+	{
+      "number": 22,
+      "choices": [
+        {"label": "A", "center": [1055, 1780]},
+        {"label": "B", "center": [1177, 1780]},
+        {"label": "C", "center": [1298, 1780]},
+        {"label": "D", "center": [1420, 1780]}
+      ]
+    },
+	{
+      "number": 23,
+      "choices": [
+        {"label": "A", "center": [1055, 1902]},
+        {"label": "B", "center": [1177, 1902]},
+        {"label": "C", "center": [1298, 1902]},
+        {"label": "D", "center": [1420, 1902]}
+      ]
+    },
+	{
+      "number": 22,
+      "choices": [
+        {"label": "A", "center": [1055, 2024]},
+        {"label": "B", "center": [1177, 2024]},
+        {"label": "C", "center": [1298, 2024]},
+        {"label": "D", "center": [1420, 2024]}
+      ]
+    },
+	{
+      "number": 25,
+      "choices": [
+        {"label": "A", "center": [1055, 2148]},
+        {"label": "B", "center": [1177, 2148]},
+        {"label": "C", "center": [1298, 2148]},
+        {"label": "D", "center": [1420, 2148]}
+      ]
+    },
+	{
+      "number": 26,
+      "choices": [
+        {"label": "A", "center": [1055, 2270]},
+        {"label": "B", "center": [1177, 2270]},
+        {"label": "C", "center": [1298, 2270]},
+        {"label": "D", "center": [1420, 2270]}
+      ]
+    },
+	{
+      "number": 27,
+      "choices": [
+        {"label": "A", "center": [1055, 2392]},
+        {"label": "B", "center": [1177, 2392]},
+        {"label": "C", "center": [1298, 2392]},
+        {"label": "D", "center": [1420, 2392]}
+      ]
+    },
+	{
+      "number": 28,
+      "choices": [
+        {"label": "A", "center": [1055, 2514]},
+        {"label": "B", "center": [1177, 2514]},
+        {"label": "C", "center": [1298, 2514]},
+        {"label": "D", "center": [1420, 2514]}
+      ]
+    },
+	{
+      "number": 29,
+      "choices": [
+        {"label": "A", "center": [1055, 2636]},
+        {"label": "B", "center": [1177, 2636]},
+        {"label": "C", "center": [1298, 2636]},
+        {"label": "D", "center": [1420, 2636]}
+      ]
+    },
+	{
+      "number": 30,
+      "choices": [
+        {"label": "A", "center": [1055, 2758]},
+        {"label": "B", "center": [1177, 2758]},
+        {"label": "C", "center": [1298, 2758]},
+        {"label": "D", "center": [1420, 2758]}
+      ]
+    },
+	{
+      "number": 31,
+      "choices": [
+        {"label": "A", "center": [1055, 2886]},
+        {"label": "B", "center": [1177, 2886]},
+        {"label": "C", "center": [1298, 2886]},
+        {"label": "D", "center": [1420, 2886]}
+      ]
+    },
+	{
+      "number": 32,
+      "choices": [
+        {"label": "A", "center": [1055, 3008]},
+        {"label": "B", "center": [1177, 3008]},
+        {"label": "C", "center": [1298, 3008]},
+        {"label": "D", "center": [1420, 3008]}
+      ]
+    },
+	{
+      "number": 33,
+      "choices": [
+        {"label": "A", "center": [1682, 1167]},
+        {"label": "B", "center": [1804, 1167]},
+        {"label": "C", "center": [1926, 1167]},
+        {"label": "D", "center": [2047, 1167]}
+      ]
+    },
+    {
+      "number": 34,
+      "choices": [
+        {"label": "A", "center": [1682, 1289]},
+        {"label": "B", "center": [1804, 1289]},
+        {"label": "C", "center": [1926, 1289]},
+        {"label": "D", "center": [2047, 1289]}
+      ]
+    },
+	{
+      "number": 35,
+      "choices": [
+        {"label": "A", "center": [1682, 1410]},
+        {"label": "B", "center": [1804, 1410]},
+        {"label": "C", "center": [1926, 1410]},
+        {"label": "D", "center": [2047, 1410]}
+      ]
+    },
+	{
+      "number": 36,
+      "choices": [
+        {"label": "A", "center": [1682, 1533]},
+        {"label": "B", "center": [1804, 1533]},
+        {"label": "C", "center": [1926, 1533]},
+        {"label": "D", "center": [2047, 1533]}
+      ]
+    },
+	{
+      "number": 37,
+      "choices": [
+        {"label": "A", "center": [1682, 1658]},
+        {"label": "B", "center": [1804, 1658]},
+        {"label": "C", "center": [1926, 1658]},
+        {"label": "D", "center": [2047, 1658]}
+      ]
+    },
+	{
+      "number": 38,
+      "choices": [
+        {"label": "A", "center": [1682, 1780]},
+        {"label": "B", "center": [1804, 1780]},
+        {"label": "C", "center": [1926, 1780]},
+        {"label": "D", "center": [2047, 1780]}
+      ]
+    },
+	{
+      "number": 39,
+      "choices": [
+        {"label": "A", "center": [1682, 1902]},
+        {"label": "B", "center": [1804, 1902]},
+        {"label": "C", "center": [1926, 1902]},
+        {"label": "D", "center": [2047, 1902]}
+      ]
+    },
+	{
+      "number": 40,
+      "choices": [
+        {"label": "A", "center": [1682, 2024]},
+        {"label": "B", "center": [1804, 2024]},
+        {"label": "C", "center": [1926, 2024]},
+        {"label": "D", "center": [2047, 2024]}
+      ]
+    },
+	{
+      "number": 41,
+      "choices": [
+        {"label": "A", "center": [1682, 2148]},
+        {"label": "B", "center": [1804, 2148]},
+        {"label": "C", "center": [1926, 2148]},
+        {"label": "D", "center": [2047, 2148]}
+      ]
+    },
+	{
+      "number": 42,
+      "choices": [
+        {"label": "A", "center": [1682, 2270]},
+        {"label": "B", "center": [1804, 2270]},
+        {"label": "C", "center": [1926, 2270]},
+        {"label": "D", "center": [2047, 2270]}
+      ]
+    },
+	{
+      "number": 43,
+      "choices": [
+        {"label": "A", "center": [1682, 2392]},
+        {"label": "B", "center": [1804, 2392]},
+        {"label": "C", "center": [1926, 2392]},
+        {"label": "D", "center": [2047, 2392]}
+      ]
+    },
+	{
+      "number": 44,
+      "choices": [
+        {"label": "A", "center": [1682, 2514]},
+        {"label": "B", "center": [1804, 2514]},
+        {"label": "C", "center": [1926, 2514]},
+        {"label": "D", "center": [2047, 2514]}
+      ]
+    },
+	{
+      "number": 45,
+      "choices": [
+        {"label": "A", "center": [1682, 2636]},
+        {"label": "B", "center": [1804, 2636]},
+        {"label": "C", "center": [1926, 2636]},
+        {"label": "D", "center": [2047, 2636]}
+      ]
+    },
+	{
+      "number": 46,
+      "choices": [
+        {"label": "A", "center": [1682, 2758]},
+        {"label": "B", "center": [1804, 2758]},
+        {"label": "C", "center": [1926, 2758]},
+        {"label": "D", "center": [2047, 2758]}
+      ]
+    },
+	{
+      "number": 47,
+      "choices": [
+        {"label": "A", "center": [1682, 2886]},
+        {"label": "B", "center": [1804, 2886]},
+        {"label": "C", "center": [1926, 2886]},
+        {"label": "D", "center": [2047, 2886]}
+      ]
+    },
+	{
+      "number": 48,
+      "choices": [
+        {"label": "A", "center": [1682, 3008]},
+        {"label": "B", "center": [1804, 3008]},
+        {"label": "C", "center": [1926, 3008]},
+        {"label": "D", "center": [2047, 3008]}
+      ]
     }
   ]
 }

@@ -1,5 +1,6 @@
 - index detection
 - answers cannot be longer than 48 rows
+- to config add scale of whiteness for detection (if paper is too gray)
 
 - General tests on irl scanned papers
 

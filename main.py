@@ -5,6 +5,7 @@ import numpy as np
 import json
 from datetime import datetime
 import time
+from concurrent.futures import ProcessPoolExecutor
 
 ## LOAD TXT FILE WITH CORRECT ANSWERS
 def load_file_with_answers(filename):
@@ -57,9 +58,14 @@ def load_images_grayscale(image_paths):
     return grayscale_images
 
 def find_keypoints_and_descriptors(image):
-    orb = cv2.ORB_create() # Initialize ORB detector
+    orb = cv2.ORB_create()  # Initialize ORB detector
     keypoints, descriptors = orb.detectAndCompute(image, None)
-    return keypoints, descriptors
+    keypoints_serializable = [(kp.pt, kp.size, kp.angle, kp.response, kp.octave, kp.class_id) for kp in keypoints]
+    return keypoints_serializable, descriptors
+
+def reconstruct_keypoints(serialized_keypoints):
+    return [cv2.KeyPoint(x=pt[0][0], y=pt[0][1], _size=pt[1], _angle=pt[2], _response=pt[3], _octave=pt[4], _class_id=pt[5]) for pt in serialized_keypoints]
+
 
 def load_config(config_path):
     with open(config_path, 'r') as file:
@@ -136,279 +142,286 @@ def overlay_rectangle(img, top_left, bottom_right, color, opacity=0.7):
     cv2.rectangle(overlay, top_left, bottom_right, color, -1)
     cv2.addWeighted(overlay, opacity, img, 1 - opacity, 0, img)
 
-
-
-start_time = time.time()
-
-correct_answers_filename = "PoprawneOdpowiedzi.txt"
-correct_answers_matrix = create_matrix_for_correct_answers(correct_answers_filename)
-
-if len(correct_answers_matrix) > 48:
-    print("Za dużo odpowiedzi! Mamy tylko 48 miejsc.")
-    exit()
-print("Odpowiedzi załadowane! Przygotowywanie prac...")
-
-# CALCULATE MAX POINTS
-
-correct_answers_max_points = calculate_max_points(correct_answers_matrix)
-
-### IMAGE ORIENTATION AND SIZE CORRECTION
-
-## GET PATHS FOR ALL IMAGES IN THE FOLDER
-
-paper_to_check_path_array = find_image_files()
-
-## GET PATH FOR TEMPLATE AND LOAD IT
-paper_template_path = 'Template.jpg'
-paper_template_image = cv2.imread(paper_template_path, 0)  # Load in grayscale
-
-## LOAD ALL REMAINING IMAGES
-
-paper_to_check_image_array = load_images_grayscale(paper_to_check_path_array)
-
-print("Prace załadowane! Przygotowywanie do korekty orientacji i skalowania...")
-
-## PERFORM ORIENTATION AND SIZE CORRECTIONS
-
-template_keypoints, template_descriptors = find_keypoints_and_descriptors(paper_template_image)
-
-paper_to_check_keypoints = []
-paper_to_check_descriptors = []
-
-for img in paper_to_check_image_array:
+def load_image_and_find_keypoints_descriptors(path):
+    img = cv2.imread(path, 0)  # Load in grayscale
     keypoints, descriptors = find_keypoints_and_descriptors(img)
-    paper_to_check_keypoints.append(keypoints)
-    paper_to_check_descriptors.append(descriptors)
+    return img, keypoints, descriptors
 
-bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True) # Create BFMatcher object
-
-all_matches = []
-
-for descriptors in paper_to_check_descriptors:
-    matches = bf.match(template_descriptors, descriptors)
-    all_matches.append(matches)
-
-paper_to_check_image_aligned_array = []
-
-# Process matches
-for i, matches in enumerate(all_matches):
-    # Draw first 10 matches
-    matched_img = cv2.drawMatches(paper_template_image, template_keypoints, paper_to_check_image_array[i], paper_to_check_keypoints[i], matches[:10], None, flags=2)
-    
-    # Extract location of good matches
-    points1 = np.zeros((len(matches), 2), dtype=np.float32)
-    points2 = np.zeros((len(matches), 2), dtype=np.float32)
-
-    for j, match in enumerate(matches):
-        points1[j, :] = template_keypoints[match.queryIdx].pt
-        points2[j, :] = paper_to_check_keypoints[i][match.trainIdx].pt
-    
-    # Find homography
-    h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
-
-    # Use homography
-    height, width = paper_template_image.shape
-    aligned_img = cv2.warpPerspective(paper_to_check_image_array[i], h, (width, height))
-    
-    paper_to_check_image_aligned_array.append(aligned_img)
-
-    # Save the transformed image
-    aligned_img_path = f"PraceZorientowane/aligned_image_{i}.jpg"
-    cv2.imwrite(aligned_img_path, aligned_img)
-
-print("Prace poprawione! Rozpoczynanie wykrywania odpowiedzi...")
-
-### IMAGE ANSWERS DETECTION
-
-# Load the configuration file
-config = load_config('config.json')
-
-num_choices = 4 # A B C D
-proximity = config['image_processing']['circle_proximity_range'] # Constant for circle detection range
-marking_threshold = config['image_processing']['marking_threshold']
-marking_threshold_factor = config['image_processing']['marking_threshold_factor']
-circle_proximity_range = config['image_processing']['circle_proximity_range']
-box_width, box_height = config['image_processing']['box_size']
-num_questions = len(correct_answers_matrix)
-
-id_box_x, id_box_y = config['index']['starting_box_position']
-id_box_width, id_box_height = config['index']['box_size']
-id_box_offset_x, id_box_offset_y = config['index']['offset']
-
-# Apply a binary threshold to the grayscale image
-_, thresh_template = cv2.threshold(paper_template_image, 128, 255, cv2.THRESH_BINARY_INV)
+def process_images_parallel(image_paths):
+    with ProcessPoolExecutor() as executor:
+        results = list(executor.map(load_image_and_find_keypoints_descriptors, image_paths))
+    images, all_keypoints, all_descriptors = zip(*results)
+    return list(images), list(all_keypoints), list(all_descriptors)
 
 
-# Constants for colors in BGR format
-LIGHT_GREEN = (0, 255, 0)
-LIGHT_RED = (0, 0, 255)
-GRAY = (128, 128, 128)
+def main():
+    global id_box_width, id_box_height, marking_threshold_factor, box_width, box_height
 
-students_ids_array = []
-students_results_array = []
-students_scored_points_array = []
+    start_time = time.time()
 
-# Analyze all images
-for index, paper_to_check in enumerate(paper_to_check_image_aligned_array): 
-    print(f"Analizowanie pracy {index+1} z {len(paper_to_check_image_aligned_array)}")
-    # Apply a binary threshold to the grayscale image
-    _, thresh_example = cv2.threshold(paper_to_check, 128, 255, cv2.THRESH_BINARY_INV)
-    paper_to_check_color = cv2.cvtColor(paper_to_check, cv2.COLOR_GRAY2BGR)  # Convert to BGR to apply colored overlay
+    correct_answers_filename = "PoprawneOdpowiedzi.txt"
+    correct_answers_matrix = create_matrix_for_correct_answers(correct_answers_filename)
 
-    # DETECT STUDENT'S ID
-    student_id = ""
-    for col in range(7):
-        for row in range(10):
-            x = id_box_x + col * id_box_offset_x - id_box_width // 2
-            y = id_box_y + row * id_box_offset_y - id_box_height // 2
-            box = thresh_example[y:y+id_box_height, x:x+id_box_width]
+    if len(correct_answers_matrix) > 48:
+        print("Za dużo odpowiedzi! Mamy tylko 48 miejsc.")
+        exit()
+    print("Odpowiedzi załadowane! Przygotowywanie prac...")
 
-            if is_marked(box, True):
-                row = row + 1
-                if row == 10:
-                    row = 0
-                student_id += str(row)  # Append the detected digit
+    # CALCULATE MAX POINTS
 
-                # Draw a green rectangle around the detected box
-                overlay_rectangle(paper_to_check_color, (x, y), (x + id_box_width, y + id_box_height), LIGHT_GREEN)
+    correct_answers_max_points = calculate_max_points(correct_answers_matrix)
 
-                break
-        else:
-            # If no mark was detected in this column, append a space
-            student_id += " "
+    ### IMAGE ORIENTATION AND SIZE CORRECTION
 
-    student_id = student_id.strip()
-    if(" " in student_id or len(student_id) < 6):
-        print(f"Błąd w odczycie indeksu dla pracy nr {index}")
-        student_id = "------"
+    ## GET PATHS FOR ALL IMAGES IN THE FOLDER
 
-    students_ids_array.append(student_id)
+    paper_to_check_path_array = find_image_files()
 
-    # DETECT MARKED (AND CIRCLED) ANSWERS, RETURN ARRAY
-    foundCircles = np.zeros((num_questions, num_choices), dtype=int)
-    results = np.zeros((num_questions, num_choices), dtype=int) 
+    ## GET PATH FOR TEMPLATE AND LOAD IT
+    paper_template_path = 'Template.jpg'
+    paper_template_image = cv2.imread(paper_template_path, 0)  # Load in grayscale
 
-    safety_index = 0
+    ## LOAD ALL REMAINING IMAGES
 
-    # Detected circles
-    for question in config['questions']:
-        question_num = question['number'] - 1  # Adjust for zero-indexing
-        if question_num >= num_questions: # Skip questions if it exceeds 
-            continue  # Skip this question
+    paper_to_check_image_array, paper_to_check_keypoints, paper_to_check_descriptors = process_images_parallel(paper_to_check_path_array)
 
-        for choice in question['choices']:
-            choice_num = ord(choice['label']) - ord('A')  # Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
-            center_x, center_y = choice['center']
+    print("Prace załadowane! Przygotowywanie do korekty orientacji i skalowania...")
 
-            # Calculate the top-left corner of the box
-            x_start = center_x - box_width // 2
-            y_start = center_y - box_height // 2
+    ## PERFORM ORIENTATION AND SIZE CORRECTIONS
 
-            # Extract the box regions from both template and example images
-            box_example = thresh_example[y_start:y_start+box_height, x_start:x_start+box_width]
+    template_keypoints, template_descriptors = find_keypoints_and_descriptors(paper_template_image)
 
-            # Check if the box is circled first
-            if is_circled(thresh_example, center_x, center_y, box_width, proximity, 8000):
-                foundCircles[question_num, choice_num] = 0
-            # If not circled, check if it is marked
-            elif is_marked(box_example):
-                foundCircles[question_num, choice_num] = 1
+    for img in paper_to_check_image_array:
+        keypoints, descriptors = find_keypoints_and_descriptors(img)
+        paper_to_check_keypoints.append(keypoints)
+        paper_to_check_descriptors.append(descriptors)
 
-        safety_index += 1
-        if safety_index >= num_questions * 4:
-            print("safety index exceeded 1")
-            break
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True) # Create BFMatcher object
+
+    all_matches = []
+
+    for descriptors in paper_to_check_descriptors:
+        matches = bf.match(template_descriptors, descriptors)
+        all_matches.append(matches)
+
+    paper_to_check_image_aligned_array = []
+
+    # Process matches
+    for i, matches in enumerate(all_matches):
+        # Draw first 10 matches
+        matched_img = cv2.drawMatches(paper_template_image, template_keypoints, paper_to_check_image_array[i], paper_to_check_keypoints[i], matches[:10], None, flags=2)
         
-    safety_index = 0
-    # Detect marked answers
-    for question in config['questions']:
-        question_num = question['number'] - 1
-        for choice in question['choices']:
-            choice_num = ord(choice['label']) - ord('A')
-            center_x, center_y = choice['center']
+        # Extract location of good matches
+        points1 = np.zeros((len(matches), 2), dtype=np.float32)
+        points2 = np.zeros((len(matches), 2), dtype=np.float32)
 
-            # Calculate the top-left corner of the box
-            x_start = center_x - box_width // 2
-            y_start = center_y - box_height // 2
+        for j, match in enumerate(matches):
+            points1[j, :] = template_keypoints[match.queryIdx].pt
+            points2[j, :] = paper_to_check_keypoints[i][match.trainIdx].pt
+        
+        # Find homography
+        h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
 
-            # Extract the box regions from both template and example images
-            box_example = thresh_example[y_start:y_start+box_height, x_start:x_start+box_width]
+        # Use homography
+        height, width = paper_template_image.shape
+        aligned_img = cv2.warpPerspective(paper_to_check_image_array[i], h, (width, height))
+        
+        paper_to_check_image_aligned_array.append(aligned_img)
 
-            if is_marked(box_example):
-                results[question_num, choice_num] = 1
-            
-        safety_index += 1
-        if safety_index >= num_questions * 4:
-            print("safety index exceeded 2")
-            break
+        # Save the transformed image
+        aligned_img_path = f"PraceZorientowane/aligned_image_{i}.jpg"
+        cv2.imwrite(aligned_img_path, aligned_img)
 
-    # Remove circled answers
-    for i in range(num_questions):
-        for j in range(num_choices):
-            if(foundCircles[i,j] == 1):
-                results[i,j] = 0
+    print("Prace poprawione! Rozpoczynanie wykrywania odpowiedzi...")
 
-    # Save student's answers as matrix
-    students_results_array.append(results)
+    ### IMAGE ANSWERS DETECTION
 
-    # CALCULATE POINTS
-    score = compare_matrices(correct_answers_matrix, results)
-    students_scored_points_array.append(score) 
+    # Load the configuration file
+    config = load_config('config.json')
 
-    safety_index = 0
+    num_choices = 4 # A B C D
+    proximity = config['image_processing']['circle_proximity_range'] # Constant for circle detection range
+    marking_threshold_factor = config['image_processing']['marking_threshold_factor']
+    box_width, box_height = config['image_processing']['box_size']
+    num_questions = len(correct_answers_matrix)
 
-    # SAVE NEW IMAGE AS "CORRECTED_AND_DETECTED" (to later validate detection)
-    for question in config['questions']:
-        question_num = question['number'] - 1
-        for choice in question['choices']:
-            choice_num = ord(choice['label']) - ord('A')
-            center_x, center_y = choice['center']
-            x_start = center_x - box_width // 2
-            y_start = center_y - box_height // 2
-            x_end = x_start + box_width
-            y_end = y_start + box_height
-            
-            if foundCircles[question_num, choice_num] == 1:
-                # Marked and circled
-                overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), LIGHT_RED)
-            elif results[question_num, choice_num] == 1:
-                # Marked but not circled
-                overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), LIGHT_GREEN)
+    id_box_x, id_box_y = config['index']['starting_box_position']
+    id_box_width, id_box_height = config['index']['box_size']
+    id_box_offset_x, id_box_offset_y = config['index']['offset']
+
+    # Constants for colors in BGR format
+    LIGHT_GREEN = (0, 255, 0)
+    LIGHT_RED = (0, 0, 255)
+    GRAY = (128, 128, 128)
+
+    students_ids_array = []
+    students_results_array = []
+    students_scored_points_array = []
+
+    # Analyze all images
+    for index, paper_to_check in enumerate(paper_to_check_image_aligned_array): 
+        print(f"Analizowanie pracy {index+1} z {len(paper_to_check_image_aligned_array)}")
+        # Apply a binary threshold to the grayscale image
+        _, thresh_example = cv2.threshold(paper_to_check, 128, 255, cv2.THRESH_BINARY_INV)
+        paper_to_check_color = cv2.cvtColor(paper_to_check, cv2.COLOR_GRAY2BGR)  # Convert to BGR to apply colored overlay
+
+        # DETECT STUDENT'S ID
+        student_id = ""
+        for col in range(7):
+            for row in range(10):
+                x = id_box_x + col * id_box_offset_x - id_box_width // 2
+                y = id_box_y + row * id_box_offset_y - id_box_height // 2
+                box = thresh_example[y:y+id_box_height, x:x+id_box_width]
+
+                if is_marked(box, True):
+                    row = row + 1
+                    if row == 10:
+                        row = 0
+                    student_id += str(row)  # Append the detected digit
+
+                    # Draw a green rectangle around the detected box
+                    overlay_rectangle(paper_to_check_color, (x, y), (x + id_box_width, y + id_box_height), LIGHT_GREEN)
+
+                    break
             else:
-                # Not marked
-                overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), GRAY)
-    
-        safety_index += 1
-        if safety_index >= num_questions:
-            break
+                # If no mark was detected in this column, append a space
+                student_id += " "
 
-    # Save the modified image
-    corrected_image_path = f"PracePrzeanalizowane/corrected_and_detected_{index}.jpg"
-    cv2.imwrite(corrected_image_path, paper_to_check_color)
+        student_id = student_id.strip()
+        if(" " in student_id or len(student_id) < 6):
+            print(f"Błąd w odczycie indeksu dla pracy nr {index}")
+            student_id = "------"
 
-print("Ukończono analizowanie! Wyświetlam odpowiedzi...\n")
+        students_ids_array.append(student_id)
 
-## OUTPUT LIST OF POINTS FOR EACH STUDENT'S ID
-# TO CONSOLE
-for student_id, score in zip(students_ids_array, students_scored_points_array):
-        percentage = (score / correct_answers_max_points) * 100
-        print(f"{student_id}: {score}, {percentage:.2f}%")
+        # DETECT MARKED (AND CIRCLED) ANSWERS, RETURN ARRAY
+        foundCircles = np.zeros((num_questions, num_choices), dtype=int)
+        results = np.zeros((num_questions, num_choices), dtype=int) 
 
-# TO FILE
-now = datetime.now() # Current date and time
-date_time = now.strftime("%Y-%m-%d %H:%M")
+        safety_index = 0
 
-with open("WynikiTestu.txt", "w", encoding='utf-8') as file:
-    file.write(f"{date_time}\n")
-    file.write(f"Liczba pytań: {num_questions}\n")
-    file.write(f"Max punktów: {correct_answers_max_points}\n")
-    file.write("Wyniki:\n")
-    
+        # Detected circles
+        for question in config['questions']:
+            question_num = question['number'] - 1  # Adjust for zero-indexing
+            if question_num >= num_questions: # Skip questions if it exceeds 
+                continue  # Skip this question
+
+            for choice in question['choices']:
+                choice_num = ord(choice['label']) - ord('A')  # Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
+                center_x, center_y = choice['center']
+
+                # Calculate the top-left corner of the box
+                x_start = center_x - box_width // 2
+                y_start = center_y - box_height // 2
+
+                # Extract the box regions from both template and example images
+                box_example = thresh_example[y_start:y_start+box_height, x_start:x_start+box_width]
+
+                # Check if the box is circled first
+                if is_circled(thresh_example, center_x, center_y, box_width, proximity, 8000):
+                    foundCircles[question_num, choice_num] = 0
+                # If not circled, check if it is marked
+                elif is_marked(box_example):
+                    foundCircles[question_num, choice_num] = 1
+
+            safety_index += 1
+            if safety_index >= num_questions * 4:
+                print("safety index exceeded 1")
+                break
+            
+        safety_index = 0
+        # Detect marked answers
+        for question in config['questions']:
+            question_num = question['number'] - 1
+            for choice in question['choices']:
+                choice_num = ord(choice['label']) - ord('A')
+                center_x, center_y = choice['center']
+
+                # Calculate the top-left corner of the box
+                x_start = center_x - box_width // 2
+                y_start = center_y - box_height // 2
+
+                # Extract the box regions from both template and example images
+                box_example = thresh_example[y_start:y_start+box_height, x_start:x_start+box_width]
+
+                if is_marked(box_example):
+                    results[question_num, choice_num] = 1
+                
+            safety_index += 1
+            if safety_index >= num_questions * 4:
+                print("safety index exceeded 2")
+                break
+
+        # Remove circled answers
+        for i in range(num_questions):
+            for j in range(num_choices):
+                if(foundCircles[i,j] == 1):
+                    results[i,j] = 0
+
+        # Save student's answers as matrix
+        students_results_array.append(results)
+
+        # CALCULATE POINTS
+        score = compare_matrices(correct_answers_matrix, results)
+        students_scored_points_array.append(score) 
+
+        safety_index = 0
+
+        # SAVE NEW IMAGE AS "CORRECTED_AND_DETECTED" (to later validate detection)
+        for question in config['questions']:
+            question_num = question['number'] - 1
+            for choice in question['choices']:
+                choice_num = ord(choice['label']) - ord('A')
+                center_x, center_y = choice['center']
+                x_start = center_x - box_width // 2
+                y_start = center_y - box_height // 2
+                x_end = x_start + box_width
+                y_end = y_start + box_height
+                
+                if foundCircles[question_num, choice_num] == 1:
+                    # Marked and circled
+                    overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), LIGHT_RED)
+                elif results[question_num, choice_num] == 1:
+                    # Marked but not circled
+                    overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), LIGHT_GREEN)
+                else:
+                    # Not marked
+                    overlay_rectangle(paper_to_check_color, (x_start, y_start), (x_end, y_end), GRAY)
+        
+            safety_index += 1
+            if safety_index >= num_questions:
+                break
+
+        # Save the modified image
+        corrected_image_path = f"PracePrzeanalizowane/corrected_and_detected_{index}.jpg"
+        cv2.imwrite(corrected_image_path, paper_to_check_color)
+
+    print("Ukończono analizowanie! Wyświetlam odpowiedzi...\n")
+
+    ## OUTPUT LIST OF POINTS FOR EACH STUDENT'S ID
+    # TO CONSOLE
     for student_id, score in zip(students_ids_array, students_scored_points_array):
-        percentage = (score / correct_answers_max_points) * 100
-        file.write(f"{student_id}: {score}, {percentage:.2f}%\n")
+            percentage = (score / correct_answers_max_points) * 100
+            print(f"{student_id}: {score}, {percentage:.2f}%")
 
-end_time = time.time()
-execution_time = end_time - start_time
+    # TO FILE
+    now = datetime.now() # Current date and time
+    date_time = now.strftime("%Y-%m-%d %H:%M")
 
-print(f"Execution time: {execution_time} seconds")
+    with open("WynikiTestu.txt", "w", encoding='utf-8') as file:
+        file.write(f"{date_time}\n")
+        file.write(f"Liczba pytań: {num_questions}\n")
+        file.write(f"Max punktów: {correct_answers_max_points}\n")
+        file.write("Wyniki:\n")
+        
+        for student_id, score in zip(students_ids_array, students_scored_points_array):
+            percentage = (score / correct_answers_max_points) * 100
+            file.write(f"{student_id}: {score}, {percentage:.2f}%\n")
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+
+    print(f"Execution time: {execution_time} seconds")
+
+if __name__ == '__main__':
+    main()

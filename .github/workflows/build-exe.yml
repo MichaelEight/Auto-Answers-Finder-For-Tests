@@ -21,8 +21,11 @@ jobs:
 
       - name: Smoke test (CLI grading on example scans)
         run: |
+          # The frozen app resolves config/ and dane/ relative to the exe, so
+          # run it from the repo root; -Wait because the windowed exe detaches.
+          Copy-Item dist/main.exe .
           Remove-Item dane/WynikiTestu.txt
-          ./dist/main.exe --cli
+          Start-Process -FilePath ./main.exe -ArgumentList "--cli" -Wait -NoNewWindow
           if (!(Test-Path "dane/WynikiTestu.txt")) { Write-Error "no results file"; exit 1 }
           if (!(Select-String -Path dane/WynikiTestu.txt -Pattern "123456: 5")) { Write-Error "wrong score"; exit 1 }
           Get-Content dane/WynikiTestu.txt

@@ -7,10 +7,11 @@ indeks studenta i liczy punkty.
 ## Wymagania
 
 - Python 3
-- Biblioteki OpenCV i NumPy:
+- Biblioteki:
   ```
-  pip install opencv-python numpy
+  pip install -r requirements.txt
   ```
+  (OpenCV, NumPy oraz opcjonalnie tkinterdnd2 — przeciąganie plików do okna)
 - (Opcjonalnie) PyInstaller — do zbudowania pliku `.exe`:
   ```
   pip install pyinstaller
@@ -18,42 +19,63 @@ indeks studenta i liczy punkty.
 
 ## Jak obsługiwać program?
 
-1. Wstaw prace do folderu `dane/PraceDoSprawdzenia`. Obsługiwane formaty: `.jpg` i `.png`.
+Uruchom `build/Python Launcher.bat` (lub `python main.py`). Otworzy się aplikacja
+okienkowa, która prowadzi przez 4 kroki:
 
-2. Otwórz plik `config/PoprawneOdpowiedzi.txt` i wpisz klucz odpowiedzi:
-   - numer linijki = numer pytania (np. trzecia linijka to trzecie pytanie),
-   - każda linijka ma 4 kolumny: kolejno A, B, C, D,
-   - `1` oznacza odpowiedź prawidłową, `0` — nieprawidłową
-     (np. `1010` oznacza, że poprawne odpowiedzi to A i C),
-   - liczba linijek = liczba sprawdzanych pytań (maksymalnie 48).
+1. **Prace** — przeciągnij zeskanowane prace (`.jpg` / `.png`) do okna albo dodaj je
+   przyciskami. Prace z folderu `dane/PraceDoSprawdzenia` wczytują się automatycznie.
 
-3. Uruchom `build/Python Launcher.bat`.
-   Alternatywnie `build/PythonToExeCompiler.bat` zbuduje plik `.exe` (wymaga PyInstallera).
+2. **Klucz odpowiedzi** — kliknij litery A–D przy każdym pytaniu, aby oznaczyć
+   poprawne odpowiedzi, albo wczytaj gotowy plik klucza (format jak
+   `config/PoprawneOdpowiedzi.txt` — wczytywany automatycznie, jeśli istnieje).
+   Klucz można też zapisać do pliku na później.
 
-4. Finalna punktacja pojawi się w konsoli oraz w pliku `dane/WynikiTestu.txt`
-   w formacie:
-   ```
-   {indeks}: {liczba punktów}, {% punktów}%
-   ```
+3. **Sprawdzanie** — kliknij „Rozpocznij sprawdzanie" i poczekaj na pasek postępu.
 
-5. Dodatkowo, do celów weryfikacji/debugowania:
-   - w folderze `dane/PraceZorientowane` pojawią się kopie prac po wstępnej obróbce
-     (obrót i skalowanie),
-   - w folderze `dane/PracePrzeanalizowane` pojawią się kopie prac z oznaczonymi polami,
-     tak jak odczytał je program:
-     - **zielone** — pole zaznaczone,
-     - **czerwone** — pole zaznaczone i wzięte w kółko (czyli anulowane),
-     - **szare** — pole niezaznaczone.
+4. **Wyniki** — tabela z indeksami, punktami i procentami. Kliknięcie pracy pokazuje
+   podgląd, a „Weryfikuj zaznaczenia" otwiera pełny widok skanu:
+   - **zielone** pole — zaznaczone (zaliczone),
+   - **czerwone** pole — zaznaczone i wzięte w kółko (anulowane),
+   - **szare** pole — niezaznaczone,
+   - **niebieska ramka** — poprawna odpowiedź według klucza.
+
+   Kliknięcie pola na skanie **zmienia jego stan** (puste → zaliczone → anulowane),
+   a punkty przeliczają się od razu — tak poprawisz błędne odczyty. Nieodczytany
+   indeks można wpisać ręcznie. Na koniec „Zapisz wyniki" tworzy plik z punktacją
+   (format jak `dane/WynikiTestu.txt`), a „Kopiuj do schowka" pozwala wkleić tabelę
+   np. do Excela.
+
+Skróty: `Enter` — następny krok / główna akcja · `Esc` — powrót · `←`/`→` — zmiana
+pracy w weryfikacji · `⌘/Ctrl + kółko myszy` — zoom · przeciąganie — przesuwanie skanu.
+
+### Tryb konsolowy (dawne zachowanie)
+
+```
+python main.py --cli
+```
+
+Czyta prace z `dane/PraceDoSprawdzenia`, klucz z `config/PoprawneOdpowiedzi.txt`
+i zapisuje punktację do `dane/WynikiTestu.txt` w formacie:
+```
+{indeks}: {liczba punktów}, {% punktów}%
+```
+
+Do celów weryfikacji w `dane/PraceZorientowane` zapisują się kopie prac po obróbce
+(obrót i skalowanie), a w `dane/PracePrzeanalizowane` — kopie z oznaczonymi polami.
+
+Plik `build/PythonToExeCompiler.bat` zbuduje wersję `.exe` (wymaga PyInstallera).
 
 ## Struktura projektu
 
 ```
-main.py        Główny program (runner)
+main.py        Główny program (bez argumentów: okno, --cli: konsola)
+app/           Kod aplikacji: core.py (analiza skanów), gui.py (okno), cli.py (konsola)
 config/        Konfiguracja: config.json, Template.jpg, PoprawneOdpowiedzi.txt
 dane/          Dane wejściowe i wyniki (PraceDoSprawdzenia, PracePrzeanalizowane, WynikiTestu.txt)
 assets/        Pliki źródłowe szablonu i zbudowany .exe
 build/         Skrypty buildu (main.spec, .bat)
 examples/      Przykładowe prace i skrypty pomocnicze
+tests/         Testy (test_core.py, smoke_gui.py, screenshot_tour.py)
 docs/          Notatki i lista zadań
 ```
 

@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
 
 # Bundle the optional drag & drop library when it is installed
 datas, binaries, hiddenimports = [], [], []
@@ -12,7 +13,7 @@ except Exception:
     pass
 
 a = Analysis(
-    ['main.py'],
+    [os.path.join(SPECPATH, '..', 'main.py')],
     pathex=[],
     binaries=binaries,
     datas=datas,
@@ -38,7 +39,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

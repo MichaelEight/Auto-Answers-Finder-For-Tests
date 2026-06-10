@@ -282,7 +282,28 @@ def _load_pil_gray(path, page_index: int) -> np.ndarray:
 
 
 def threshold_inv(gray: np.ndarray) -> np.ndarray:
-    _, thresh = cv2.threshold(gray, 128, 255, cv2.THRESH_BINARY_INV)
+    """Binarizes a scan into ink=255 / paper=0, robust to lighting.
+
+    A fixed threshold fails on dark, washed-out or shadowed scans, so the
+    paper background is estimated (morphological close removes ink, blur
+    smooths it) and divided out, flattening gray paper and shadow gradients
+    to uniform white. Otsu then separates ink adaptively.
+    """
+    denoised = cv2.medianBlur(gray, 3)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (31, 31))
+    background = cv2.morphologyEx(denoised, cv2.MORPH_CLOSE, kernel)
+    background = cv2.GaussianBlur(background, (0, 0), sigmaX=15)
+    background = np.maximum(background, 1)
+    normalized = np.clip(denoised.astype(np.float32) / background * 255,
+                         0, 255).astype(np.uint8)
+    # Normalization pins paper at ~255, so a cut close to white picks up even
+    # faint, washed-out pen strokes that a global Otsu split would miss. The
+    # cut backs off below the paper-noise tail on grainy scans, where a fixed
+    # high cut would read noise speckle as ink.
+    paper = normalized[normalized > 200]
+    sigma = float(paper.std()) if paper.size else 10.0
+    cut = min(230.0, 255.0 - 4.0 * max(sigma, 3.0))
+    _, thresh = cv2.threshold(normalized, int(cut), 255, cv2.THRESH_BINARY_INV)
     return thresh
 
 
@@ -292,35 +313,71 @@ class Aligner:
     """Matches scans against the template with ORB features and warps them
     into template space, so config box coordinates apply directly."""
 
+    MIN_INLIERS = 12
+    # Hamming distance below which an ORB match is considered reliable
+    GOOD_MATCH_DISTANCE = 64
+
     def __init__(self, template_gray: np.ndarray):
         self.template = template_gray
-        self.orb = cv2.ORB_create()
+        self.orb = cv2.ORB_create(nfeatures=3000)
         self.keypoints, self.descriptors = self.orb.detectAndCompute(template_gray, None)
         self.matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
     def align(self, img_gray: np.ndarray) -> np.ndarray:
+        # Resize the scan to template width first: feature matching then works
+        # in a single scale regime regardless of the scan resolution.
+        factor = self.template.shape[1] / img_gray.shape[1]
+        if abs(factor - 1) > 0.05:
+            interp = cv2.INTER_AREA if factor < 1 else cv2.INTER_CUBIC
+            img_gray = cv2.resize(img_gray, None, fx=factor, fy=factor,
+                                  interpolation=interp)
+
         keypoints, descriptors = self.orb.detectAndCompute(img_gray, None)
-        if descriptors is None or len(keypoints) == 0:
+        if descriptors is None or len(keypoints) < 4:
             raise AlignmentError("Nie znaleziono punktów charakterystycznych na skanie.")
         matches = self.matcher.match(self.descriptors, descriptors)
-        if len(matches) < 4:
+        if len(matches) < self.MIN_INLIERS:
             raise AlignmentError("Za mało dopasowań do szablonu.")
-        points_template = np.float32([self.keypoints[m.queryIdx].pt for m in matches])
-        points_scan = np.float32([keypoints[m.trainIdx].pt for m in matches])
-        homography, _ = cv2.findHomography(points_scan, points_template, cv2.RANSAC)
-        if homography is None:
-            raise AlignmentError("Nie udało się dopasować skanu do szablonu.")
+
+        # Garbage matches drag the homography off target — keep reliable ones
+        matches = sorted(matches, key=lambda m: m.distance)
+        good = [m for m in matches if m.distance <= self.GOOD_MATCH_DISTANCE]
+        if len(good) < 30:
+            good = matches[:max(30, len(matches) // 3)]
+
+        points_template = np.float32([self.keypoints[m.queryIdx].pt for m in good])
+        points_scan = np.float32([keypoints[m.trainIdx].pt for m in good])
+        homography, mask = cv2.findHomography(points_scan, points_template,
+                                              cv2.RANSAC, 5.0)
+        inliers = int(mask.sum()) if mask is not None else 0
+        if homography is None or inliers < self.MIN_INLIERS:
+            raise AlignmentError("Za mało wiarygodnych dopasowań do szablonu.")
+
+        # Reject degenerate fits (mirroring, wild scale) before they produce
+        # a garbage warp that would be silently graded.
+        det = (homography[0, 0] * homography[1, 1]
+               - homography[0, 1] * homography[1, 0])
+        if not 0.25 <= det <= 4.0:
+            raise AlignmentError("Dopasowanie do szablonu odrzucone (zniekształcenie).")
+
         height, width = self.template.shape
-        return cv2.warpPerspective(img_gray, homography, (width, height))
+        return cv2.warpPerspective(img_gray, homography, (width, height),
+                                   borderValue=255)
 
 
 ## DETECTION
 
 def is_marked(box: np.ndarray, box_w: int, box_h: int, factor: float) -> bool:
+    # Sample only the inner core of the box: the printed outline sits at the
+    # edge and, smeared by blur or rescaling, would otherwise read as a mark.
+    margin = max(2, int(min(box_w, box_h) * 0.15))
+    inner = box[margin:-margin, margin:-margin]
+    if inner.size == 0:
+        inner = box
     # In the inverted threshold image ink is 255; counting pixels below 255
     # counts paper. Less paper than factor*area means enough ink to be a mark.
-    threshold = factor * box_w * box_h
-    paper_pixels = np.sum(box < 255)
+    threshold = factor * inner.size
+    paper_pixels = np.sum(inner < 255)
     return paper_pixels < threshold
 
 

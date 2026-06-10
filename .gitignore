@@ -10,3 +10,4 @@ __pycache__/
 # Editor temp files
 tempCodeRunnerFile.py
 tests/robustness_cases/
+.DS_Store

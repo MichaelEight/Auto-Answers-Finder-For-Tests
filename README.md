@@ -83,13 +83,21 @@ tests/         Testy (test_core.py, smoke_gui.py, screenshot_tour.py)
 docs/          Notatki i lista zadań
 ```
 
-## Wykonane testy
+## Odporność na zniekształcenia skanu
 
-- zmniejszona kartka — OK,
-- obrócona kartka — przy pochyleniu większym niż kilka stopni pojawiają się drobne problemy,
-- szum na kartce (symulacja jakości papieru) — OK,
-- długopis czarny i niebieski — OK,
-- przezroczystość pisma — przy półprzezroczystym program przestaje wykrywać zaznaczenie.
+Algorytm jest testowany zestawem 39 zniekształconych skanów
+(`python3 tests/robustness.py` — przypadki i nakładki weryfikacyjne trafiają do
+`tests/robustness_cases/`). Obsługiwane bez utraty dokładności:
+
+- obrót kartki — dowolny, łącznie z 90° i 180° (kartka do góry nogami),
+- zmiana rozdzielczości — od ok. 0,2× do 2× rozmiaru szablonu,
+- szum, artefakty JPEG, lekkie rozmycie,
+- ciemny / szary / niedoświetlony skan, gradient cienia, zagniecenia,
+- perspektywa i zdjęcie telefonem na ciemnym tle, urwany róg kartki.
+
+Granica: bardzo prześwietlony skan (pismo niemal zlewa się z papierem) może
+gubić zaznaczenia — wtedy warto zeskanować ciemniej. Długopis czarny
+i niebieski — OK.
 
 ## Autor
 

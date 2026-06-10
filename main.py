@@ -316,6 +316,9 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
     # Detect marked answers
     for question in config['questions']:
         question_num = question['number'] - 1
+        if question_num >= num_questions:  # Skip config slots beyond the answer key
+            continue
+
         for choice in question['choices']:
             choice_num = ord(choice['label']) - ord('A')
             center_x, center_y = choice['center']

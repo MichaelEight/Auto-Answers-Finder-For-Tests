@@ -11,7 +11,8 @@ indeks studenta i liczy punkty.
   ```
   pip install -r requirements.txt
   ```
-  (OpenCV, NumPy oraz opcjonalnie tkinterdnd2 — przeciąganie plików do okna)
+  (OpenCV i NumPy — wymagane; opcjonalnie: tkinterdnd2 — przeciąganie plików
+  do okna, pymupdf — skany PDF, pillow-heif — zdjęcia HEIC z telefonu)
 - (Opcjonalnie) PyInstaller — do zbudowania pliku `.exe`:
   ```
   pip install pyinstaller
@@ -22,8 +23,11 @@ indeks studenta i liczy punkty.
 Uruchom `build/Python Launcher.bat` (lub `python main.py`). Otworzy się aplikacja
 okienkowa, która prowadzi przez 4 kroki:
 
-1. **Prace** — przeciągnij zeskanowane prace (`.jpg` / `.png`) do okna albo dodaj je
-   przyciskami. Prace z folderu `dane/PraceDoSprawdzenia` wczytują się automatycznie.
+1. **Prace** — przeciągnij zeskanowane prace do okna albo dodaj je przyciskami.
+   Obsługiwane formaty: JPG, PNG, PDF, TIFF, BMP, WEBP, GIF, HEIC (zdjęcia
+   z telefonu). Wielostronicowy PDF lub TIFF rozwija się automatycznie — każda
+   strona to osobna praca (np. `skan.pdf [str. 2]`). Prace z folderu
+   `dane/PraceDoSprawdzenia` wczytują się automatycznie.
 
 2. **Klucz odpowiedzi** — kliknij litery A–D przy każdym pytaniu, aby oznaczyć
    poprawne odpowiedzi, albo wczytaj gotowy plik klucza (format jak

@@ -5,6 +5,10 @@ import numpy as np
 import json
 from datetime import datetime
 
+## ENSURE OUTPUT FOLDERS EXIST
+os.makedirs("dane/PraceZorientowane", exist_ok=True)
+os.makedirs("dane/PracePrzeanalizowane", exist_ok=True)
+
 ## LOAD TXT FILE WITH CORRECT ANSWERS
 def load_file_with_answers(filename):
     with open(filename, 'r') as file:
@@ -27,7 +31,7 @@ def create_matrix_for_correct_answers(filename):
         print("Error:", e)
         quit()
 
-correct_answers_filename = "PoprawneOdpowiedzi.txt"
+correct_answers_filename = "config/PoprawneOdpowiedzi.txt"
 correct_answers_matrix = create_matrix_for_correct_answers(correct_answers_filename)
 
 if len(correct_answers_matrix) > 48:
@@ -55,7 +59,7 @@ correct_answers_max_points = calculate_max_points(correct_answers_matrix)
 def find_image_files():
     image_extensions = ['.jpg', '.jpeg', '.png']  # Add more if needed
     image_files = []
-    for root, dirs, files in os.walk("PraceDoSprawdzenia"):
+    for root, dirs, files in os.walk("dane/PraceDoSprawdzenia"):
         for file in files:
             _, extension = os.path.splitext(file)
             if extension.lower() in image_extensions:
@@ -65,7 +69,7 @@ def find_image_files():
 paper_to_check_path_array = find_image_files()
 
 ## GET PATH FOR TEMPLATE AND LOAD IT
-paper_template_path = 'Template.jpg'
+paper_template_path = 'config/Template.jpg'
 paper_template_image = cv2.imread(paper_template_path, 0)  # Load in grayscale
 
 ## LOAD ALL REMAINING IMAGES
@@ -129,7 +133,7 @@ for i, matches in enumerate(all_matches):
     paper_to_check_image_aligned_array.append(aligned_img)
 
     # Save the transformed image
-    aligned_img_path = f"PraceZorientowane/aligned_image_{i}.jpg"
+    aligned_img_path = f"dane/PraceZorientowane/aligned_image_{i}.jpg"
     cv2.imwrite(aligned_img_path, aligned_img)
 
 print("Prace poprawione! Rozpoczynanie wykrywania odpowiedzi...")
@@ -141,7 +145,7 @@ def load_config(config_path):
     return config
 
 # Load the configuration file
-config = load_config('config.json')
+config = load_config('config/config.json')
 
 num_choices = 4 # A B C D
 proximity = config['image_processing']['circle_proximity_range'] # Constant for circle detection range
@@ -372,7 +376,7 @@ for index, paper_to_check in enumerate(paper_to_check_image_aligned_array):
             break
 
     # Save the modified image
-    corrected_image_path = f"PracePrzeanalizowane/corrected_and_detected_{index}.jpg"
+    corrected_image_path = f"dane/PracePrzeanalizowane/corrected_and_detected_{index}.jpg"
     cv2.imwrite(corrected_image_path, paper_to_check_color)
 
 print("Ukończono analizowanie! Wyświetlam odpowiedzi...\n")
@@ -387,7 +391,7 @@ for student_id, score in zip(students_ids_array, students_scored_points_array):
 now = datetime.now() # Current date and time
 date_time = now.strftime("%Y-%m-%d %H:%M")
 
-with open("WynikiTestu.txt", "w", encoding='utf-8') as file:
+with open("dane/WynikiTestu.txt", "w", encoding='utf-8') as file:
     file.write(f"{date_time}\n")
     file.write(f"Liczba pytań: {num_questions}\n")
     file.write(f"Max punktów: {correct_answers_max_points}\n")

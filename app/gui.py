@@ -317,14 +317,17 @@ class App(_TK_BASE):
             if txts:
                 self._load_key_file(txts[0])
                 return
-        images = []
+        file_paths = []
         for p in paths:
             if p.is_dir():
-                images.extend(core.find_image_files(p))
-            elif p.suffix.lower() in core.IMAGE_EXTENSIONS:
-                images.append(p)
-        if images:
-            self.add_files(images)
+                exts = core.supported_extensions()
+                file_paths.extend(sorted(
+                    (pp for pp in p.rglob("*") if pp.suffix.lower() in exts),
+                    key=lambda x: str(x).lower()))
+            else:
+                file_paths.append(p)
+        if file_paths:
+            self.add_files(file_paths)
             if self.current_step != 1:
                 self.show_step(1)
 
@@ -337,8 +340,9 @@ class App(_TK_BASE):
         drop = tk.Frame(frame, bg="#eef3fb", highlightthickness=2,
                         highlightbackground="#9bb3d4")
         drop.pack(fill="x", pady=(0, 12), ipady=18)
-        drop_text = ("⬇  Przeciągnij tutaj pliki .jpg / .png  ⬇" if HAS_DND
-                     else "Dodaj pliki .jpg / .png przyciskami poniżej")
+        formats = self._formats_summary()
+        drop_text = (f"⬇  Przeciągnij tutaj pliki ({formats})  ⬇" if HAS_DND
+                     else f"Dodaj pliki ({formats}) przyciskami poniżej")
         tk.Label(drop, text=drop_text, bg="#eef3fb", fg=ACCENT_DARK,
                  font=("TkDefaultFont", 15, "bold")).pack(pady=(10, 6))
         btns = tk.Frame(drop, bg="#eef3fb")
@@ -371,10 +375,18 @@ class App(_TK_BASE):
         self.files_info_label = ttk.Label(frame, text="", style="Muted.TLabel")
         self.files_info_label.pack(anchor="w")
 
+    def _formats_summary(self) -> str:
+        names = ["JPG", "PNG", "TIFF", "BMP", "WEBP"]
+        if core.pymupdf is not None:
+            names.insert(2, "PDF")
+        if core.HEIF_SUPPORTED:
+            names.append("HEIC")
+        return ", ".join(names)
+
     def _preload_inputs(self):
-        preloaded = core.find_image_files(core.INPUT_DIR)
+        preloaded = core.find_scan_sources(core.INPUT_DIR)
         if preloaded:
-            self.add_files(preloaded)
+            self._add_sources(preloaded)
             self.files_info_label.configure(
                 text=f"Wczytano automatycznie {len(preloaded)} prac(e) z folderu "
                      f"{core.INPUT_DIR.relative_to(core.ROOT)}.")
@@ -384,32 +396,39 @@ class App(_TK_BASE):
             self._set_question_count(1)
 
     def pick_files(self):
+        patterns = " ".join(f"*{ext}" for ext in sorted(core.supported_extensions()))
         paths = filedialog.askopenfilenames(
             parent=self, title="Wybierz zeskanowane prace",
-            filetypes=[("Obrazy", "*.jpg *.jpeg *.png"), ("Wszystkie pliki", "*")])
+            filetypes=[("Obsługiwane pliki", patterns), ("Wszystkie pliki", "*")])
         if paths:
             self.add_files([Path(p) for p in paths])
 
     def pick_folder(self):
         folder = filedialog.askdirectory(parent=self, title="Wybierz folder z pracami")
         if folder:
-            found = core.find_image_files(folder)
+            found = core.find_scan_sources(folder)
             if found:
-                self.add_files(found)
+                self._add_sources(found)
             else:
                 messagebox.showinfo("Brak prac",
-                                    "W wybranym folderze nie ma plików .jpg ani .png.",
+                                    "W wybranym folderze nie ma obsługiwanych plików.",
                                     parent=self)
 
     def add_files(self, paths):
-        existing = {p.resolve() for p in self.files}
+        sources, skipped = core.expand_sources(paths)
+        self._add_sources(sources, skipped)
+
+    def _add_sources(self, sources, skipped=()):
+        existing = set(self.files)
         added = 0
-        for p in paths:
-            rp = Path(p).resolve()
-            if rp not in existing:
-                self.files.append(rp)
-                existing.add(rp)
+        for source in sources:
+            if source not in existing:
+                self.files.append(source)
+                existing.add(source)
                 added += 1
+        if skipped:
+            shown = ", ".join(skipped[:3]) + ("…" if len(skipped) > 3 else "")
+            self.files_info_label.configure(text=f"Pominięto: {shown}")
         if added:
             self._refresh_file_list()
             self.invalidate_results()
@@ -431,8 +450,9 @@ class App(_TK_BASE):
 
     def _refresh_file_list(self):
         self.files_list.delete(0, "end")
-        for p in self.files:
-            self.files_list.insert("end", f"  {p.name}    —    {p.parent}")
+        for source in self.files:
+            self.files_list.insert(
+                "end", f"  {source.display_name}    —    {source.path.parent}")
         self.files_count_label.configure(text=f"Dodane prace: {len(self.files)}")
         self._update_nav()
 
@@ -709,13 +729,13 @@ class App(_TK_BASE):
         ok_count = 0
         for i, work in enumerate(works):
             if not work.ok:
-                self._log(f"✖ {work.path.name} — {work.error}", "err")
+                self._log(f"✖ {work.name} — {work.error}", "err")
             elif not work.id_ok:
-                self._log(f"⚠ {work.path.name} — nie odczytano indeksu, "
+                self._log(f"⚠ {work.name} — nie odczytano indeksu, "
                           f"{core.score_marks(key, work.marks)} pkt", "warn")
                 ok_count += 1
             else:
-                self._log(f"✓ {work.path.name} — indeks {work.student_id}, "
+                self._log(f"✓ {work.name} — indeks {work.student_id}, "
                           f"{core.score_marks(key, work.marks)} pkt", "ok")
                 ok_count += 1
         self._log(f"Gotowe: {ok_count} z {len(works)} prac sprawdzono poprawnie.")
@@ -882,7 +902,7 @@ class App(_TK_BASE):
         if i == self._preview_cache_idx:
             return
         work = self.works[i]
-        self.preview_title.configure(text=f"Podgląd: {work.path.name}")
+        self.preview_title.configure(text=f"Podgląd: {work.name}")
         img = self._render_annotated(work)
         if img is None:
             self.preview_label.configure(image="", text="(brak podglądu)")
@@ -901,7 +921,7 @@ class App(_TK_BASE):
                 gray = core.imread_gray(work.aligned_path)
                 return core.annotate_work(gray, work.marks, self.cfg,
                                           len(self.key_vars), work.id_boxes)
-            return cv2.cvtColor(core.imread_gray(work.path), cv2.COLOR_GRAY2BGR)
+            return cv2.cvtColor(core.load_source_gray(work.source), cv2.COLOR_GRAY2BGR)
         except core.PipelineError:
             return None
 
@@ -942,7 +962,7 @@ class App(_TK_BASE):
                 pct = (score / maximum * 100) if maximum else 0.0
                 rows.append(f"{work.student_id}\t{score}\t{pct:.2f}")
             else:
-                rows.append(f"BŁĄD ({work.path.name})\t\t")
+                rows.append(f"BŁĄD ({work.name})\t\t")
         self.clipboard_clear()
         self.clipboard_append("\n".join(rows))
         self.save_info_label.configure(text="Skopiowano do schowka ✓")
@@ -1045,7 +1065,7 @@ class App(_TK_BASE):
                 self._verify_gray = core.imread_gray(work.aligned_path)
                 self.verify_error_label.configure(text="")
             else:
-                self._verify_gray = core.imread_gray(work.path)
+                self._verify_gray = core.load_source_gray(work.source)
                 self.verify_error_label.configure(
                     text=f"Nie sprawdzono: {work.error}")
         except core.PipelineError:
@@ -1061,7 +1081,7 @@ class App(_TK_BASE):
     def _refresh_verify_header(self):
         work = self.works[self.verify_index]
         self.verify_title.configure(
-            text=f"Praca {self.verify_index + 1} z {len(self.works)} · {work.path.name}")
+            text=f"Praca {self.verify_index + 1} z {len(self.works)} · {work.name}")
         if work.ok:
             key = self.current_key()
             maximum = core.max_points(key)

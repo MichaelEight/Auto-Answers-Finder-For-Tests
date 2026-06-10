@@ -17,8 +17,8 @@ def run_cli() -> int:
 
     print("Odpowiedzi załadowane! Przygotowywanie prac...")
 
-    files = core.find_image_files(core.INPUT_DIR)
-    if not files:
+    sources = core.find_scan_sources(core.INPUT_DIR)
+    if not sources:
         print(f"Brak prac w folderze {core.INPUT_DIR}")
         return 1
 
@@ -27,7 +27,7 @@ def run_cli() -> int:
     def progress(i, total, name):
         print(f"Analizowanie pracy {i + 1} z {total}")
 
-    works = core.process(files, len(key), progress_cb=progress)
+    works = core.process(sources, len(key), progress_cb=progress)
 
     for i, work in enumerate(works):
         if not work.ok:

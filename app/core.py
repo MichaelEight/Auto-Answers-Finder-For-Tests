@@ -18,6 +18,29 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+# Optional format support: PDF via PyMuPDF, HEIC/GIF/multi-page TIFF via Pillow.
+try:
+    import pymupdf
+except ImportError:
+    try:
+        import fitz as pymupdf  # older PyMuPDF releases
+    except ImportError:
+        pymupdf = None
+
+try:
+    from PIL import Image as PILImage
+except ImportError:
+    PILImage = None
+
+HEIF_SUPPORTED = False
+if PILImage is not None:
+    try:
+        from pillow_heif import register_heif_opener
+        register_heif_opener()
+        HEIF_SUPPORTED = True
+    except ImportError:
+        pass
+
 MAX_QUESTIONS = 48
 NUM_CHOICES = 4
 
@@ -31,7 +54,28 @@ MARK_CANCELLED = 2  # marked but circled (withdrawn by the student)
 RING_CLEAN_PIXEL_THRESHOLD = 8000
 RING_EXCLUSION_BORDER = 7
 
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+# Formats cv2.imdecode reads natively
+CV2_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".jp2",
+                  ".pbm", ".pgm", ".ppm"}
+TIFF_EXTENSIONS = {".tif", ".tiff"}
+PIL_EXTRA_EXTENSIONS = {".gif"}
+HEIF_EXTENSIONS = {".heic", ".heif"}
+PDF_EXTENSIONS = {".pdf"}
+
+# Render PDF pages to the template's pixel width (300 dpi A4 scan) regardless
+# of the page's nominal size, so detection sees template-scale ink.
+PDF_TARGET_WIDTH_PX = 2480
+
+
+def supported_extensions() -> set[str]:
+    exts = CV2_EXTENSIONS | TIFF_EXTENSIONS
+    if pymupdf is not None:
+        exts |= PDF_EXTENSIONS
+    if PILImage is not None:
+        exts |= PIL_EXTRA_EXTENSIONS
+    if HEIF_SUPPORTED:
+        exts |= HEIF_EXTENSIONS
+    return exts
 
 # Overlay colors (BGR)
 LIGHT_GREEN = (0, 255, 0)
@@ -117,17 +161,124 @@ def load_template() -> np.ndarray:
     return imread_gray(TEMPLATE_IMAGE)
 
 
-def find_image_files(folder) -> list[Path]:
+## SCAN SOURCES — one gradable sheet: an image file or a page of a multi-page file
+
+@dataclass(frozen=True)
+class ScanSource:
+    path: Path
+    page: int = 0   # 0-based page within the file
+    pages: int = 1  # total pages in the file
+
+    @property
+    def display_name(self) -> str:
+        if self.pages > 1:
+            return f"{self.path.name} [str. {self.page + 1}]"
+        return self.path.name
+
+
+def page_count(path: Path) -> int:
+    ext = path.suffix.lower()
+    if ext in PDF_EXTENSIONS:
+        if pymupdf is None:
+            raise PipelineError("Obsługa PDF wymaga: pip install pymupdf")
+        with pymupdf.open(path) as doc:
+            if doc.needs_pass:
+                raise PipelineError("PDF jest zaszyfrowany.")
+            return doc.page_count
+    if PILImage is not None and ext in (TIFF_EXTENSIONS | PIL_EXTRA_EXTENSIONS
+                                        | HEIF_EXTENSIONS):
+        try:
+            with PILImage.open(path) as img:
+                return getattr(img, "n_frames", 1)
+        except Exception:
+            return 1
+    return 1
+
+
+def expand_sources(paths) -> tuple[list[ScanSource], list[str]]:
+    """Expands file paths into per-page scan sources.
+    Returns (sources, skipped_descriptions)."""
+    exts = supported_extensions()
+    sources, skipped = [], []
+    for path in paths:
+        path = Path(path).resolve()
+        ext = path.suffix.lower()
+        if ext not in exts:
+            if ext in PDF_EXTENSIONS:
+                reason = "PDF wymaga: pip install pymupdf"
+            elif ext in HEIF_EXTENSIONS:
+                reason = "HEIC wymaga: pip install pillow-heif"
+            else:
+                reason = "nieobsługiwany format"
+            skipped.append(f"{path.name} ({reason})")
+            continue
+        try:
+            pages = page_count(path)
+        except (PipelineError, OSError) as e:
+            skipped.append(f"{path.name} ({e})")
+            continue
+        for page in range(pages):
+            sources.append(ScanSource(path=path, page=page, pages=pages))
+    return sources, skipped
+
+
+def find_scan_sources(folder) -> list[ScanSource]:
     folder = Path(folder)
     if not folder.is_dir():
         return []
-    files = [
-        Path(root) / name
-        for root, _, names in os.walk(folder)
-        for name in names
-        if Path(name).suffix.lower() in IMAGE_EXTENSIONS
-    ]
-    return sorted(files, key=lambda p: str(p).lower())
+    exts = supported_extensions()
+    paths = sorted(
+        (Path(root) / name
+         for root, _, names in os.walk(folder)
+         for name in names
+         if Path(name).suffix.lower() in exts),
+        key=lambda p: str(p).lower())
+    sources, _ = expand_sources(paths)
+    return sources
+
+
+def load_source_gray(source) -> np.ndarray:
+    if isinstance(source, (str, Path)):
+        source = ScanSource(path=Path(source))
+    ext = source.path.suffix.lower()
+    if ext in PDF_EXTENSIONS:
+        return _load_pdf_page_gray(source.path, source.page)
+    if ext in TIFF_EXTENSIONS | PIL_EXTRA_EXTENSIONS | HEIF_EXTENSIONS:
+        if PILImage is not None:
+            return _load_pil_gray(source.path, source.page)
+        if ext in TIFF_EXTENSIONS:
+            return imread_gray(source.path)  # first page only without Pillow
+        raise PipelineError("Ten format wymaga: pip install Pillow")
+    if ext in CV2_EXTENSIONS:
+        return imread_gray(source.path)
+    if PILImage is not None:
+        return _load_pil_gray(source.path, source.page)
+    raise PipelineError(f"Nieobsługiwany format: {ext}")
+
+
+def _load_pdf_page_gray(path, page_index: int) -> np.ndarray:
+    if pymupdf is None:
+        raise PipelineError("Obsługa PDF wymaga: pip install pymupdf")
+    with pymupdf.open(path) as doc:
+        if doc.needs_pass:
+            raise PipelineError("PDF jest zaszyfrowany.")
+        page = doc[page_index]
+        zoom = PDF_TARGET_WIDTH_PX / max(page.rect.width, 1)
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom),
+                              colorspace=pymupdf.csGRAY, alpha=False)
+        arr = np.frombuffer(pix.samples, dtype=np.uint8)
+        # Pixmap rows may be padded to the stride width
+        return arr.reshape(pix.height, pix.stride)[:, :pix.width].copy()
+
+
+def _load_pil_gray(path, page_index: int) -> np.ndarray:
+    try:
+        with PILImage.open(path) as img:
+            if page_index and getattr(img, "n_frames", 1) > page_index:
+                img.seek(page_index)
+            return np.array(img.convert("L"))
+    except Exception as e:
+        raise PipelineError(f"Nie można wczytać obrazu: {e}")
 
 
 def threshold_inv(gray: np.ndarray) -> np.ndarray:
@@ -310,7 +461,7 @@ def annotate_work(aligned_gray: np.ndarray, marks: np.ndarray, cfg: dict,
 
 @dataclass
 class WorkResult:
-    path: Path
+    source: ScanSource
     error: str | None = None
     marks: np.ndarray | None = None
     student_id: str = "------"
@@ -323,10 +474,14 @@ class WorkResult:
     def ok(self) -> bool:
         return self.error is None
 
+    @property
+    def name(self) -> str:
+        return self.source.display_name
 
-def process(files, n_questions: int, cfg: dict | None = None,
+
+def process(sources, n_questions: int, cfg: dict | None = None,
             progress_cb=None, cancel_cb=None) -> list[WorkResult]:
-    """Aligns, detects and annotates every scan. Per-file errors are recorded
+    """Aligns, detects and annotates every scan. Per-scan errors are recorded
     in the WorkResult instead of aborting the whole batch."""
     if cfg is None:
         cfg = load_config()
@@ -335,16 +490,18 @@ def process(files, n_questions: int, cfg: dict | None = None,
     ANALYZED_DIR.mkdir(parents=True, exist_ok=True)
 
     works = []
-    total = len(files)
-    for i, path in enumerate(files):
+    total = len(sources)
+    for i, source in enumerate(sources):
         if cancel_cb is not None and cancel_cb():
             break
+        if isinstance(source, (str, Path)):
+            source = ScanSource(path=Path(source))
         if progress_cb is not None:
-            progress_cb(i, total, Path(path).name)
+            progress_cb(i, total, source.display_name)
 
-        work = WorkResult(path=Path(path))
+        work = WorkResult(source=source)
         try:
-            img = imread_gray(path)
+            img = load_source_gray(source)
             aligned = aligner.align(img)
             thresh = threshold_inv(aligned)
             work.marks = detect_marks(thresh, cfg, n_questions)
@@ -360,6 +517,11 @@ def process(files, n_questions: int, cfg: dict | None = None,
             work.error = f"{type(e).__name__}: {e}"
         works.append(work)
     return works
+
+
+def process_paths(paths, n_questions: int, **kwargs) -> list[WorkResult]:
+    sources, _ = expand_sources(paths)
+    return process(sources, n_questions, **kwargs)
 
 
 ## RESULTS OUTPUT
@@ -378,5 +540,5 @@ def write_results_file(path, works: list[WorkResult], key: list[list[int]]) -> N
             pct = (score / maximum * 100) if maximum else 0.0
             lines.append(f"{work.student_id}: {score}, {pct:.2f}%")
         else:
-            lines.append(f"# BŁĄD: {work.path.name} — {work.error}")
+            lines.append(f"# BŁĄD: {work.name} — {work.error}")
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")

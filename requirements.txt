@@ -2,3 +2,8 @@ opencv-python
 numpy
 # Opcjonalne: przeciąganie plików do okna (drag & drop)
 tkinterdnd2
+# Opcjonalne: obsługa skanów PDF (wielostronicowych)
+pymupdf
+# Opcjonalne: obsługa zdjęć HEIC (iPhone) i formatów dodatkowych
+Pillow
+pillow-heif

@@ -96,6 +96,70 @@ def test_ring_and_detection():
     assert marks[0, 3] == core.MARK_EMPTY
 
 
+def test_expand_sources_plain_image():
+    import cv2
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "skan.png"
+        cv2.imwrite(str(path), np.full((40, 30), 200, dtype=np.uint8))
+        sources, skipped = core.expand_sources([path])
+        assert len(sources) == 1 and not skipped
+        assert sources[0].display_name == "skan.png"
+        img = core.load_source_gray(sources[0])
+        assert img.shape == (40, 30)
+
+        unknown = Path(tmp) / "praca.xyz"
+        unknown.write_bytes(b"x")
+        sources, skipped = core.expand_sources([unknown])
+        assert not sources and len(skipped) == 1
+
+
+def test_multipage_tiff():
+    if core.PILImage is None:
+        print("SKIP test_multipage_tiff (no Pillow)")
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "skany.tiff"
+        page1 = core.PILImage.new("L", (30, 20), 10)
+        page2 = core.PILImage.new("L", (30, 20), 250)
+        page1.save(path, save_all=True, append_images=[page2])
+        sources, skipped = core.expand_sources([path])
+        assert len(sources) == 2 and not skipped
+        assert sources[1].display_name == "skany.tiff [str. 2]"
+        assert core.load_source_gray(sources[0]).mean() < 50
+        assert core.load_source_gray(sources[1]).mean() > 200
+
+
+def test_pdf_pages():
+    if core.pymupdf is None:
+        print("SKIP test_pdf_pages (no pymupdf)")
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "skany.pdf"
+        doc = core.pymupdf.open()
+        for _ in range(2):
+            doc.new_page(width=595, height=842)  # A4 at 72 dpi
+        doc.save(str(path))
+        doc.close()
+        sources, skipped = core.expand_sources([path])
+        assert len(sources) == 2 and not skipped
+        img = core.load_source_gray(sources[1])
+        # Rendered at 300 dpi an A4 page must match the template scale
+        assert img.shape[0] > 3300 and img.shape[1] > 2300, img.shape
+
+
+def test_heic():
+    if not core.HEIF_SUPPORTED:
+        print("SKIP test_heic (no pillow-heif)")
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "zdjęcie.heic"
+        core.PILImage.new("L", (60, 40), 128).save(path)
+        sources, skipped = core.expand_sources([path])
+        assert len(sources) == 1 and not skipped
+        img = core.load_source_gray(sources[0])
+        assert img.shape == (40, 60)
+
+
 def main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for test in tests:

@@ -1,0 +1,4 @@
+opencv-python
+numpy
+# Opcjonalne: przeciąganie plików do okna (drag & drop)
+tkinterdnd2

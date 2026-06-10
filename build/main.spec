@@ -1,12 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+# Bundle the optional drag & drop library when it is installed
+datas, binaries, hiddenimports = [], [], []
+try:
+    from PyInstaller.utils.hooks import collect_all
+    d, b, h = collect_all('tkinterdnd2')
+    datas += d
+    binaries += b
+    hiddenimports += h
+except Exception:
+    pass
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
-    datas=[],
-    hiddenimports=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

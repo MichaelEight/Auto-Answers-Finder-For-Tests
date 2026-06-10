@@ -22,6 +22,20 @@ def main():
     assert core.max_points(app.current_key()) == 19
     print("PASS preload (files + key)")
 
+    # Widgets must reflect variable values. A stale default root (left behind
+    # by a failed drag&drop probe) once detached every checkbox from its value:
+    # all rendered in 'alternate' state and the question spinbox showed blank.
+    from tkinter import ttk
+    boxes = [w for w in app.key_inner.winfo_children()
+             if isinstance(w, ttk.Checkbutton)]
+    assert boxes, "no key checkbuttons built"
+    alternate = [w for w in boxes if w.instate(["alternate"])]
+    assert not alternate, f"{len(alternate)} checkbuttons detached from variables"
+    selected = sum(1 for w in boxes if w.instate(["selected"]))
+    assert selected == 19, f"expected 19 selected checkboxes, got {selected}"
+    assert app.n_spin.get() == "14", f"spinbox shows {app.n_spin.get()!r}"
+    print("PASS widgets in sync with loaded key")
+
     for step in (1, 2, 3):
         app.show_step(step)
         app.update()

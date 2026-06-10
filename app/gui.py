@@ -26,13 +26,26 @@ _TK_BASE = tk.Tk
 HAS_DND = False
 try:
     from tkinterdnd2 import DND_FILES, TkinterDnD
-    _probe = TkinterDnD.Tk()
-    _probe.withdraw()
-    _probe.destroy()
-    _TK_BASE = TkinterDnD.Tk
-    HAS_DND = True
 except Exception:
-    pass
+    TkinterDnD = None
+if TkinterDnD is not None:
+    try:
+        _probe = TkinterDnD.Tk()
+        _probe.withdraw()
+        _probe.destroy()
+        _TK_BASE = TkinterDnD.Tk
+        HAS_DND = True
+    except Exception:
+        # A failed probe can leave a half-built window registered as the
+        # default root; clean it up, otherwise variables created without an
+        # explicit master would bind to a dead interpreter and widgets would
+        # render desynchronized from their values.
+        try:
+            if tk._default_root is not None:
+                tk._default_root.destroy()
+        except Exception:
+            pass
+        tk._default_root = None
 
 ACCENT = "#1565c0"
 ACCENT_DARK = "#0d47a1"
@@ -95,7 +108,7 @@ class App(_TK_BASE):
         self._cancel = threading.Event()
         self._poll_id = None
         self.key_vars: list[list[tk.IntVar]] = []
-        self.show_key_var = tk.BooleanVar(value=True)
+        self.show_key_var = tk.BooleanVar(master=self, value=True)
 
         self._build_style()
         self._build_header()
@@ -436,7 +449,7 @@ class App(_TK_BASE):
         ttk.Button(bar, text="💾  Zapisz do pliku…", command=self.save_key_dialog).pack(
             side="left", padx=(8, 24))
         ttk.Label(bar, text="Liczba pytań:").pack(side="left")
-        self.n_var = tk.IntVar(value=1)
+        self.n_var = tk.IntVar(master=self, value=1)
         self.n_spin = ttk.Spinbox(bar, from_=1, to=core.MAX_QUESTIONS, width=4,
                                   textvariable=self.n_var, command=self._on_n_spin)
         self.n_spin.pack(side="left", padx=(6, 24))
@@ -472,7 +485,7 @@ class App(_TK_BASE):
             row = []
             for c in range(core.NUM_CHOICES):
                 value = old[q][c].get() if q < len(old) else 0
-                var = tk.IntVar(value=value)
+                var = tk.IntVar(master=self, value=value)
                 var.trace_add("write", self._on_key_toggle)
                 row.append(var)
             self.key_vars.append(row)
@@ -944,7 +957,7 @@ class App(_TK_BASE):
         self.verify_title = ttk.Label(head, text="", font=("TkDefaultFont", 14, "bold"))
         self.verify_title.pack(side="left", padx=16)
         ttk.Label(head, text="Indeks:").pack(side="left", padx=(12, 4))
-        self.verify_id_var = tk.StringVar()
+        self.verify_id_var = tk.StringVar(master=self)
         id_entry = ttk.Entry(head, textvariable=self.verify_id_var, width=9,
                              font=("TkDefaultFont", 13))
         id_entry.pack(side="left")
